@@ -84,6 +84,28 @@ export interface AccountSecurity {
   userRole: string;
 }
 
+export interface AIPersonalizationData {
+  frequentSymptoms: string[];
+  healthGoals: {
+    goal: string;
+    target: string;
+    progress: number;
+    startDate: Date | null;
+    targetDate: Date | null;
+  }[];
+  chatHistory: {
+    id: string;
+    topic: string;
+    date: Date;
+    summary: string;
+  }[];
+  moodTracking: {
+    date: Date;
+    mood: 'very-sad' | 'sad' | 'neutral' | 'happy' | 'very-happy';
+    notes: string;
+  }[];
+}
+
 export interface ProfileData {
   basicInfo: BasicInfo;
   medicalInfo: MedicalInfo;
@@ -91,4 +113,5 @@ export interface ProfileData {
   healthRecords: HealthRecords;
   remindersPreferences: RemindersPreferences;
   accountSecurity: AccountSecurity;
+  aiPersonalization: AIPersonalizationData;
 }

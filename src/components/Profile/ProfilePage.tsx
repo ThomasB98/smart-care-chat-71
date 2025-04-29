@@ -81,6 +81,12 @@ const ProfilePage = ({ userData }: ProfilePageProps) => {
       },
       dataConsent: true,
       userRole: "patient"
+    },
+    aiPersonalization: {
+      frequentSymptoms: [],
+      healthGoals: [],
+      chatHistory: [],
+      moodTracking: []
     }
   });
   

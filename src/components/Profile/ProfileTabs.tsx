@@ -7,6 +7,7 @@ import HealthMetricsTab from "./tabs/HealthMetricsTab";
 import HealthRecordsTab from "./tabs/HealthRecordsTab";
 import RemindersTab from "./tabs/RemindersTab";
 import AccountSecurityTab from "./tabs/AccountSecurityTab";
+import AIPersonalizationTab from "./tabs/AIPersonalizationTab";
 import { ProfileData } from "@/types/profile";
 
 interface ProfileTabsProps {
@@ -19,12 +20,13 @@ const ProfileTabs = ({ profileData, updateProfileData }: ProfileTabsProps) => {
   
   return (
     <Tabs defaultValue="basic-info" value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid grid-cols-3 md:grid-cols-6 mb-8">
+      <TabsList className="grid grid-cols-3 md:grid-cols-7 mb-8">
         <TabsTrigger value="basic-info">Basic Info</TabsTrigger>
         <TabsTrigger value="medical-info">Medical</TabsTrigger>
         <TabsTrigger value="health-metrics">Metrics</TabsTrigger>
         <TabsTrigger value="health-records">Records</TabsTrigger>
         <TabsTrigger value="reminders">Reminders</TabsTrigger>
+        <TabsTrigger value="ai-data">AI Data</TabsTrigger>
         <TabsTrigger value="account">Account</TabsTrigger>
       </TabsList>
       
@@ -60,6 +62,13 @@ const ProfileTabs = ({ profileData, updateProfileData }: ProfileTabsProps) => {
         <RemindersTab 
           data={profileData.remindersPreferences} 
           onUpdate={(data) => updateProfileData("remindersPreferences", data)} 
+        />
+      </TabsContent>
+      
+      <TabsContent value="ai-data">
+        <AIPersonalizationTab 
+          data={profileData.aiPersonalization} 
+          onUpdate={(data) => updateProfileData("aiPersonalization", data)} 
         />
       </TabsContent>
       
