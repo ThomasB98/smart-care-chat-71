@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, User, Settings } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import SymptomChecker from "./SymptomChecker";
@@ -11,9 +11,19 @@ import HealthTips from "./HealthTips";
 import NearbyDoctors from "./NearbyDoctors";
 import Login from "./Login";
 import Registration from "./Registration";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { generateId, processUserInput, MessageType, getSymptomAnalysis, getFAQResponse } from "@/utils/chatbotUtils";
 
 const ChatInterface = () => {
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showRegistration, setShowRegistration] = useState(false);
   const [userData, setUserData] = useState<{ email: string; name: string } | null>(null);
@@ -98,6 +108,25 @@ const ChatInterface = () => {
 
   const switchToLogin = () => {
     setShowRegistration(false);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserData(null);
+    setMessages([
+      {
+        id: generateId(),
+        content: "Hello! I'm your Smart Healthcare Assistant. How can I help you today?",
+        sender: 'bot',
+        timestamp: new Date(),
+        type: 'options',
+        options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+      }
+    ]);
+  };
+
+  const goToProfile = () => {
+    navigate('/profile', { state: { userData } });
   };
 
   const handleSendMessage = (content: string) => {
@@ -299,8 +328,40 @@ const ChatInterface = () => {
               <CardTitle className="text-xl font-bold">Smart Healthcare Assistant</CardTitle>
             </div>
             {userData && (
-              <div className="text-sm text-gray-500">
-                Logged in as {userData.name}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500 hidden md:inline-block">
+                  Logged in as {userData.name}
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full">
+                      <Avatar className="h-8 w-8 bg-healthcare-primary/10 text-healthcare-primary">
+                        <User className="h-4 w-4" />
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 z-50">
+                    <div className="flex items-center justify-start p-2">
+                      <div className="flex flex-col space-y-0.5">
+                        <p className="text-sm font-medium">{userData.name}</p>
+                        <p className="text-xs text-gray-500">{userData.email}</p>
+                      </div>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={goToProfile}>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>My Profile</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      Log Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
