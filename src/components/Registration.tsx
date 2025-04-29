@@ -4,37 +4,55 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { MessageCircle } from "lucide-react";
+import { UserPlus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-interface LoginProps {
-  onLogin: (userData: { email: string; name: string }) => void;
-  onRegister: () => void;
+interface RegistrationProps {
+  onRegister: (userData: { email: string; name: string }) => void;
+  onBackToLogin: () => void;
 }
 
-const Login = ({ onLogin, onRegister }: LoginProps) => {
+const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleRegistration = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     
     // Simple validation
-    if (!email || !password) {
-      setError("Please enter both email and password");
+    if (!name || !email || !password) {
+      setError("Please fill in all fields");
       setIsLoading(false);
       return;
     }
     
-    // Mock login - in a real app, this would connect to an authentication service
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
+    }
+    
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setIsLoading(false);
+      return;
+    }
+    
+    // Mock registration - in a real app, this would connect to an authentication service
     setTimeout(() => {
       setIsLoading(false);
-      // Extract name from email for demo purposes
-      const name = email.split('@')[0];
-      onLogin({ email, name });
+      toast({
+        title: "Registration successful!",
+        description: "Your account has been created.",
+      });
+      onRegister({ email, name });
     }, 1000);
   };
 
@@ -44,17 +62,27 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <Avatar className="h-12 w-12 bg-healthcare-primary">
-              <MessageCircle className="h-6 w-6 text-white" />
+              <UserPlus className="h-6 w-6 text-white" />
             </Avatar>
           </div>
-          <CardTitle className="text-2xl font-bold">Healthcare Assistant</CardTitle>
+          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
           <CardDescription>
-            Login to access your healthcare assistant
+            Register to access the healthcare assistant
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleRegistration}>
             <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">Full Name</label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium">Email</label>
                 <Input
@@ -75,6 +103,16 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
+              <div className="space-y-2">
+                <label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
               
               {error && (
                 <div className="text-sm text-red-500">
@@ -88,7 +126,7 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
               className="w-full mt-6 bg-healthcare-primary hover:bg-healthcare-dark"
               disabled={isLoading}
             >
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? "Creating account..." : "Register"}
             </Button>
           </form>
         </CardContent>
@@ -96,12 +134,12 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
           <Button 
             variant="ghost" 
             className="mt-2"
-            onClick={onRegister}
+            onClick={onBackToLogin}
           >
-            Don't have an account? Register
+            Already have an account? Login
           </Button>
           <p className="text-xs text-center text-gray-500 mt-2">
-            Demo login: Use any email and password
+            Demo registration: Fill in any details
           </p>
         </CardFooter>
       </Card>
@@ -109,4 +147,4 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
   );
 };
 
-export default Login;
+export default Registration;

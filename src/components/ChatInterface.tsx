@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -11,10 +10,12 @@ import MedicationReminder from "./MedicationReminder";
 import HealthTips from "./HealthTips";
 import NearbyDoctors from "./NearbyDoctors";
 import Login from "./Login";
+import Registration from "./Registration";
 import { generateId, processUserInput, MessageType, getSymptomAnalysis, getFAQResponse } from "@/utils/chatbotUtils";
 
 const ChatInterface = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showRegistration, setShowRegistration] = useState(false);
   const [userData, setUserData] = useState<{ email: string; name: string } | null>(null);
   const [messages, setMessages] = useState<MessageType[]>([
     {
@@ -70,6 +71,33 @@ const ChatInterface = () => {
       };
       setMessages([welcomeMessage]);
     });
+  };
+
+  const handleRegister = (userData: { email: string; name: string }) => {
+    setIsLoggedIn(true);
+    setUserData(userData);
+    setShowRegistration(false);
+    
+    // Update welcome message for new user
+    simulateTyping(() => {
+      const welcomeMessage: MessageType = {
+        id: generateId(),
+        content: `Welcome, ${userData.name}! Thank you for registering. I'm your healthcare assistant. How can I help you today?`,
+        sender: 'bot',
+        timestamp: new Date(),
+        type: 'options',
+        options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+      };
+      setMessages([welcomeMessage]);
+    });
+  };
+
+  const switchToRegister = () => {
+    setShowRegistration(true);
+  };
+
+  const switchToLogin = () => {
+    setShowRegistration(false);
   };
 
   const handleSendMessage = (content: string) => {
@@ -253,7 +281,10 @@ const ChatInterface = () => {
   };
 
   if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
+    if (showRegistration) {
+      return <Registration onRegister={handleRegister} onBackToLogin={switchToLogin} />;
+    }
+    return <Login onLogin={handleLogin} onRegister={switchToRegister} />;
   }
 
   return (
