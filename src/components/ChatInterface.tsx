@@ -9,9 +9,13 @@ import SymptomChecker from "./SymptomChecker";
 import AppointmentScheduler from "./AppointmentScheduler";
 import MedicationReminder from "./MedicationReminder";
 import HealthTips from "./HealthTips";
+import NearbyDoctors from "./NearbyDoctors";
+import Login from "./Login";
 import { generateId, processUserInput, MessageType, getSymptomAnalysis, getFAQResponse } from "@/utils/chatbotUtils";
 
 const ChatInterface = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState<{ email: string; name: string } | null>(null);
   const [messages, setMessages] = useState<MessageType[]>([
     {
       id: generateId(),
@@ -19,12 +23,13 @@ const ChatInterface = () => {
       sender: 'bot',
       timestamp: new Date(),
       type: 'options',
-      options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions"]
+      options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
     }
   ]);
   
   const [isTyping, setIsTyping] = useState(false);
   const [activeComponent, setActiveComponent] = useState<string | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -47,6 +52,24 @@ const ChatInterface = () => {
 
   const addMessage = (message: MessageType) => {
     setMessages(prev => [...prev, message]);
+  };
+
+  const handleLogin = (userData: { email: string; name: string }) => {
+    setIsLoggedIn(true);
+    setUserData(userData);
+    
+    // Update welcome message with user's name
+    simulateTyping(() => {
+      const welcomeMessage: MessageType = {
+        id: generateId(),
+        content: `Welcome back, ${userData.name}! How can I help you with your healthcare needs today?`,
+        sender: 'bot',
+        timestamp: new Date(),
+        type: 'options',
+        options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+      };
+      setMessages([welcomeMessage]);
+    });
   };
 
   const handleSendMessage = (content: string) => {
@@ -103,6 +126,9 @@ const ChatInterface = () => {
       } else if (option === "Get health tips") {
         setActiveComponent('health-tips');
         return;
+      } else if (option === "Find nearby doctors") {
+        setActiveComponent('nearby-doctors');
+        return;
       } else if (option === "Ask health questions") {
         const botResponse: MessageType = {
           id: generateId(),
@@ -110,7 +136,7 @@ const ChatInterface = () => {
           sender: 'bot',
           timestamp: new Date(),
           type: 'options',
-          options: healthTips.map((_, i) => `Health Tip #${i + 1}`)
+          options: ["How to prevent cold?", "What is high blood pressure?", "Benefits of exercise", "Healthy diet tips", "Sleep hygiene"]
         };
         addMessage(botResponse);
         return;
@@ -210,15 +236,42 @@ const ChatInterface = () => {
     });
   };
 
+  const handleDoctorSelect = (doctor: any) => {
+    setSelectedDoctor(doctor);
+    setActiveComponent('appointment');
+    
+    simulateTyping(() => {
+      const botResponse: MessageType = {
+        id: generateId(),
+        content: `You selected ${doctor.name}, ${doctor.specialty}. Please schedule your appointment below.`,
+        sender: 'bot',
+        timestamp: new Date(),
+        type: 'text'
+      };
+      addMessage(botResponse);
+    });
+  };
+
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
     <div className="flex flex-col h-full">
       <Card className="flex flex-col h-full border-none">
         <CardHeader className="bg-white border-b px-6 py-4">
-          <div className="flex items-center">
-            <Avatar className="h-10 w-10 mr-3 bg-healthcare-primary">
-              <MessageCircle className="h-5 w-5 text-white" />
-            </Avatar>
-            <CardTitle className="text-xl font-bold">Smart Healthcare Assistant</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Avatar className="h-10 w-10 mr-3 bg-healthcare-primary">
+                <MessageCircle className="h-5 w-5 text-white" />
+              </Avatar>
+              <CardTitle className="text-xl font-bold">Smart Healthcare Assistant</CardTitle>
+            </div>
+            {userData && (
+              <div className="text-sm text-gray-500">
+                Logged in as {userData.name}
+              </div>
+            )}
           </div>
         </CardHeader>
         
@@ -267,6 +320,15 @@ const ChatInterface = () => {
                 <HealthTips
                   onSelect={handleHealthTipSelect}
                   onClose={() => setActiveComponent(null)}
+                />
+              </div>
+            )}
+
+            {activeComponent === 'nearby-doctors' && (
+              <div className="p-4 border-t">
+                <NearbyDoctors
+                  onSelectDoctor={handleDoctorSelect}
+                  onCancel={() => setActiveComponent(null)}
                 />
               </div>
             )}
