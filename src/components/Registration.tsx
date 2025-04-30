@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar } from "@/components/ui/avatar";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { REGISTERED_USERS } from "./Login";
 
 interface RegistrationProps {
   onRegister: (userData: { email: string; name: string }) => void;
@@ -44,8 +45,19 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
       setIsLoading(false);
       return;
     }
+
+    // Check if user already exists
+    const existingUser = REGISTERED_USERS.find(user => user.email === email);
+    if (existingUser) {
+      setError("Email already registered. Please use a different email.");
+      setIsLoading(false);
+      return;
+    }
     
-    // Mock registration - in a real app, this would connect to an authentication service
+    // Add new user to the mock database
+    const newUser = { email, name, password };
+    REGISTERED_USERS.push(newUser);
+    
     setTimeout(() => {
       setIsLoading(false);
       toast({
@@ -138,9 +150,6 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
           >
             Already have an account? Login
           </Button>
-          <p className="text-xs text-center text-gray-500 mt-2">
-            Demo registration: Fill in any details
-          </p>
         </CardFooter>
       </Card>
     </div>

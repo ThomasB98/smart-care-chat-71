@@ -13,7 +13,7 @@ interface LoginProps {
 }
 
 // Mock user database - in a real application, this would come from a backend service
-const REGISTERED_USERS = [
+export const REGISTERED_USERS = [
   { email: "john@example.com", name: "John", password: "password123" },
   { email: "sarah@example.com", name: "Sarah", password: "secure456" },
   { email: "demo@example.com", name: "Demo", password: "demo" }
