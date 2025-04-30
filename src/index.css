@@ -90,6 +90,10 @@
     @apply border-border;
   }
 
+  html, body {
+    @apply h-full overflow-auto;
+  }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -111,4 +115,15 @@
 .chat-container::-webkit-scrollbar-thumb {
   background-color: hsl(var(--muted));
   border-radius: 20px;
+}
+
+/* Make tabs and content responsive on small screens */
+@media (max-width: 640px) {
+  .tabs-container {
+    flex-direction: column;
+  }
+  
+  .tab-content {
+    margin-top: 1rem;
+  }
 }

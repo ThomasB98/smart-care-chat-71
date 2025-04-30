@@ -78,32 +78,32 @@ const ProfilePage = ({ userData }: ProfilePageProps) => {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-b from-healthcare-light to-white p-4 md:p-8">
-      <Card className="max-w-5xl mx-auto">
-        <CardContent className="p-6 md:p-8">
-          <div className="mb-6">
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate('/')}
-              className="flex items-center text-healthcare-primary hover:text-healthcare-dark mb-4"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Chat
-            </Button>
-            <h1 className="text-3xl font-bold">My Health Profile</h1>
-          </div>
-          
-          <ProfileHeader 
-            userData={{ ...userData, profileImage }}
-            onImageChange={handleProfileImageChange}
-          />
-          
+    <div className="w-full px-4 py-6 md:py-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-6">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/')}
+            className="flex items-center text-healthcare-primary hover:text-healthcare-dark mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Chat
+          </Button>
+          <h1 className="text-2xl md:text-3xl font-bold">My Health Profile</h1>
+        </div>
+        
+        <ProfileHeader 
+          userData={{ ...userData, profileImage }}
+          onImageChange={handleProfileImageChange}
+        />
+        
+        <div className="mt-8">
           <ProfileTabs 
             profileData={profileData}
             updateProfileData={updateProfileData}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };
