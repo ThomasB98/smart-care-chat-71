@@ -5,17 +5,26 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface LoginProps {
   onLogin: (userData: { email: string; name: string }) => void;
   onRegister: () => void;
 }
 
+// Mock user database - in a real application, this would come from a backend service
+const REGISTERED_USERS = [
+  { email: "john@example.com", name: "John", password: "password123" },
+  { email: "sarah@example.com", name: "Sarah", password: "secure456" },
+  { email: "demo@example.com", name: "Demo", password: "demo" }
+];
+
 const Login = ({ onLogin, onRegister }: LoginProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const { toast } = useToast();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,12 +38,23 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
       return;
     }
     
-    // Mock login - in a real app, this would connect to an authentication service
+    // Check if user exists in our mock database
     setTimeout(() => {
       setIsLoading(false);
-      // Extract name from email for demo purposes
-      const name = email.split('@')[0];
-      onLogin({ email, name });
+      
+      const user = REGISTERED_USERS.find(
+        (user) => user.email === email && user.password === password
+      );
+      
+      if (user) {
+        toast({
+          title: "Login successful",
+          description: "Welcome back to your healthcare assistant!",
+        });
+        onLogin({ email: user.email, name: user.name });
+      } else {
+        setError("Invalid email or password. Please try again or register.");
+      }
     }, 1000);
   };
 
@@ -101,7 +121,7 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
             Don't have an account? Register
           </Button>
           <p className="text-xs text-center text-gray-500 mt-2">
-            Demo login: Use any email and password
+            Demo login: Use email "demo@example.com" with password "demo"
           </p>
         </CardFooter>
       </Card>
