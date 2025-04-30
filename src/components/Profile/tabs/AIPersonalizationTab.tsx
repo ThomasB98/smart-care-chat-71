@@ -7,36 +7,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { AIPersonalizationData } from "@/types/profile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { 
-  Chart, 
-  LineElement, 
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  Tooltip, 
-  Legend,
-  Title,
-  BarElement
-} from "chart.js";
-import { ChartBar, ChartLine, Heart, MessageSquare, Smile, Frown } from "lucide-react";
+import { ChartBar, ChartLine, Heart, MessageSquare, Smile } from "lucide-react";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Line, Bar } from "recharts";
-
-Chart.register(
-  LineElement, 
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  Tooltip, 
-  Legend,
-  Title,
-  BarElement
-);
+import { BarChart, LineChart, Bar as RechartsBar, Line as RechartsLine, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 
 interface AIPersonalizationTabProps {
   data: AIPersonalizationData;
@@ -162,7 +141,7 @@ const AIPersonalizationTab = ({ data, onUpdate }: AIPersonalizationTabProps) => 
   const goalChartData = formData.healthGoals.map(goal => ({
     name: goal.goal,
     progress: goal.progress,
-    target: 100
+    target: goal.target
   }));
   
   return (
@@ -244,18 +223,16 @@ const AIPersonalizationTab = ({ data, onUpdate }: AIPersonalizationTabProps) => 
               
               {formData.healthGoals.length > 0 && (
                 <div className="mb-6 h-64">
-                  <div className="flex justify-center w-full h-full">
-                    {goalChartData.length > 0 && (
-                      <div className="w-full h-full">
-                        <Bar
-                          data={goalChartData}
-                          width={500}
-                          height={250}
-                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                        />
-                      </div>
-                    )}
-                  </div>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={goalChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <RechartsBar dataKey="progress" fill="#8884d8" name="Progress" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               )}
               
@@ -433,18 +410,16 @@ const AIPersonalizationTab = ({ data, onUpdate }: AIPersonalizationTabProps) => 
             
             {formData.moodTracking.length > 0 && (
               <div className="mb-6 h-64">
-                <div className="flex justify-center w-full h-full">
-                  {moodChartData.length > 0 && (
-                    <div className="w-full h-full">
-                      <Line
-                        data={moodChartData}
-                        width={500}
-                        height={250}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      />
-                    </div>
-                  )}
-                </div>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={moodChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} />
+                    <Tooltip />
+                    <Legend />
+                    <RechartsLine type="monotone" dataKey="value" stroke="#8884d8" name="Mood Level" />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             )}
             
