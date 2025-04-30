@@ -1,12 +1,13 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import ProfileHeader from "./ProfileHeader";
 import ProfileTabs from "./ProfileTabs";
-import { ProfileData } from "@/types/profile";
+import { ProfileData, saveProfileData, loadProfileData } from "@/types/profile";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProfilePageProps {
   userData: {
@@ -17,78 +18,18 @@ interface ProfilePageProps {
 
 const ProfilePage = ({ userData }: ProfilePageProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [profileImage, setProfileImage] = useState<string | undefined>(undefined);
   
-  // Initialize with default profile data
-  const [profileData, setProfileData] = useState<ProfileData>({
-    basicInfo: {
-      fullName: userData.name || "",
-      gender: "",
-      dateOfBirth: null,
-      contactNumber: "",
-      email: userData.email || "",
-      residentialAddress: "",
-      profilePicture: profileImage
-    },
-    medicalInfo: {
-      bloodGroup: "",
-      knownAllergies: "",
-      chronicConditions: "",
-      currentMedications: "",
-      pastSurgeries: "",
-      vaccinationRecords: "",
-      familyMedicalHistory: ""
-    },
-    healthMetrics: {
-      height: "",
-      weight: "",
-      bmi: "",
-      bloodPressure: "",
-      heartRate: "",
-      glucoseLevels: "",
-      oxygenSaturation: "",
-      sleepPatterns: "",
-      exerciseRoutine: ""
-    },
-    healthRecords: {
-      medicalReports: [],
-      appointmentHistory: [],
-      hospitalVisits: [],
-      insuranceDetails: {
-        provider: "",
-        policyNumber: "",
-        coverage: ""
-      }
-    },
-    remindersPreferences: {
-      medicationReminders: true,
-      appointmentReminders: true,
-      preferredChatTime: "",
-      languagePreference: "english",
-      notificationPreferences: {
-        email: true,
-        sms: false,
-        push: true
-      }
-    },
-    accountSecurity: {
-      username: userData.name || "",
-      twoFactorEnabled: false,
-      emergencyContact: {
-        name: "",
-        relationship: "",
-        phone: ""
-      },
-      dataConsent: true,
-      userRole: "patient"
-    },
-    aiPersonalization: {
-      frequentSymptoms: [],
-      healthGoals: [],
-      chatHistory: [],
-      moodTracking: []
+  // Initialize with data from localStorage or defaults
+  const [profileData, setProfileData] = useState<ProfileData>(() => loadProfileData(userData));
+  
+  // Update profile image from saved data on initial load
+  useEffect(() => {
+    if (profileData.basicInfo.profilePicture) {
+      setProfileImage(profileData.basicInfo.profilePicture);
     }
-  });
+  }, []);
   
   const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -104,10 +45,36 @@ const ProfilePage = ({ userData }: ProfilePageProps) => {
   };
   
   const updateProfileData = (section: string, data: any) => {
-    setProfileData(prev => ({
-      ...prev,
-      [section]: data
-    }));
+    setProfileData(prev => {
+      const updatedData = {
+        ...prev,
+        [section]: data
+      };
+      
+      // Save to localStorage after each update
+      saveProfileData(updatedData);
+      
+      // Show success toast
+      toast({
+        title: "Data saved successfully",
+        description: `Your ${getSectionDisplayName(section)} has been updated.`,
+      });
+      
+      return updatedData;
+    });
+  };
+  
+  const getSectionDisplayName = (section: string): string => {
+    switch(section) {
+      case "basicInfo": return "Basic Information";
+      case "medicalInfo": return "Medical Information";
+      case "healthMetrics": return "Health Metrics";
+      case "healthRecords": return "Health Records";
+      case "remindersPreferences": return "Reminders & Preferences";
+      case "accountSecurity": return "Account Security";
+      case "aiPersonalization": return "AI Personalization";
+      default: return section;
+    }
   };
   
   return (
