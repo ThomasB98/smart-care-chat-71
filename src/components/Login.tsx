@@ -33,13 +33,31 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
     }
     
     try {
+      console.log("Attempting login with:", { email });
+      
       // Sign in with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Login error:", error);
+        
+        // More user-friendly error messages
+        if (error.message.includes("Invalid login")) {
+          setError("Email or password is incorrect. Please check your credentials and try again.");
+        } else if (error.message.includes("Email not confirmed")) {
+          setError("Please confirm your email before logging in. Check your inbox for a confirmation email.");
+        } else {
+          setError(`Login failed: ${error.message}`);
+        }
+        
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Login successful:", data.user);
       
       if (data.user) {
         toast({
@@ -58,6 +76,37 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
       setError(error.message || "Invalid email or password. Please try again or register.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // If login is still failing, try this function
+  const handleTroubleshoot = async () => {
+    try {
+      // Attempt to get the current session - useful for debugging
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log("Current session data:", sessionData);
+      
+      if (sessionData?.session) {
+        toast({
+          title: "You already have an active session",
+          description: "Attempting to restore your login...",
+        });
+        
+        const { user } = sessionData.session;
+        onLogin({
+          email: user.email || email,
+          name: user.user_metadata?.name || email.split('@')[0],
+          id: user.id
+        });
+      } else {
+        toast({
+          title: "Troubleshooting",
+          description: "No active session found. Please try logging in again or reset your password.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error("Troubleshooting error:", err);
     }
   };
 
@@ -114,6 +163,18 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
               {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
+          
+          {error && (
+            <div className="mt-4 text-center">
+              <Button 
+                variant="link" 
+                className="text-healthcare-primary p-0 h-auto text-sm"
+                onClick={handleTroubleshoot}
+              >
+                Having trouble? Click here to troubleshoot
+              </Button>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col">
           <Button 
