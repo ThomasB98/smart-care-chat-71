@@ -1,3 +1,4 @@
+
 export interface BasicInfo {
   fullName: string;
   gender: string;
@@ -115,6 +116,53 @@ export interface ProfileData {
   aiPersonalization: AIPersonalizationData;
 }
 
+// Helper function to convert Date objects to strings for storage
+const prepareDateObjectsForStorage = (data: ProfileData): ProfileData => {
+  const processedData = JSON.parse(JSON.stringify(data)) as ProfileData;
+  
+  // Don't need to process most fields as they're already stored as strings
+  // But we need to handle the AI Personalization data specifically
+  
+  return processedData;
+};
+
+// Helper function to convert stored strings back to Date objects
+const restoreDateObjects = (data: ProfileData): ProfileData => {
+  if (data.aiPersonalization) {
+    // Convert health goals dates
+    if (data.aiPersonalization.healthGoals) {
+      data.aiPersonalization.healthGoals = data.aiPersonalization.healthGoals.map(goal => ({
+        ...goal,
+        startDate: goal.startDate ? new Date(goal.startDate) : null,
+        targetDate: goal.targetDate ? new Date(goal.targetDate) : null
+      }));
+    }
+    
+    // Convert chat history dates
+    if (data.aiPersonalization.chatHistory) {
+      data.aiPersonalization.chatHistory = data.aiPersonalization.chatHistory.map(chat => ({
+        ...chat,
+        date: new Date(chat.date)
+      }));
+    }
+    
+    // Convert mood tracking dates
+    if (data.aiPersonalization.moodTracking) {
+      data.aiPersonalization.moodTracking = data.aiPersonalization.moodTracking.map(mood => ({
+        ...mood,
+        date: new Date(mood.date)
+      }));
+    }
+  }
+  
+  // Also convert basic info date of birth if present
+  if (data.basicInfo && data.basicInfo.dateOfBirth) {
+    data.basicInfo.dateOfBirth = new Date(data.basicInfo.dateOfBirth);
+  }
+  
+  return data;
+};
+
 // New utility functions to manage profile data persistence
 export const saveProfileData = (data: ProfileData) => {
   localStorage.setItem('healthProfileData', JSON.stringify(data));
@@ -126,18 +174,19 @@ export const loadProfileData = (userData: { name: string; email: string }): Prof
   if (savedData) {
     try {
       const parsedData = JSON.parse(savedData) as ProfileData;
+      const restoredData = restoreDateObjects(parsedData);
       
       // Update with current user data to ensure it's in sync
       return {
-        ...parsedData,
+        ...restoredData,
         basicInfo: {
-          ...parsedData.basicInfo,
-          fullName: parsedData.basicInfo.fullName || userData.name,
-          email: parsedData.basicInfo.email || userData.email,
+          ...restoredData.basicInfo,
+          fullName: restoredData.basicInfo.fullName || userData.name,
+          email: restoredData.basicInfo.email || userData.email,
         },
         accountSecurity: {
-          ...parsedData.accountSecurity,
-          username: parsedData.accountSecurity.username || userData.name,
+          ...restoredData.accountSecurity,
+          username: restoredData.accountSecurity.username || userData.name,
         }
       };
     } catch (error) {

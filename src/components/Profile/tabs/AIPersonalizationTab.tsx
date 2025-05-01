@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +14,6 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, LineChart, Bar as RechartsBar, Line as RechartsLine, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 
 interface AIPersonalizationTabProps {
   data: AIPersonalizationData;
@@ -31,7 +29,39 @@ const moodEmojis = {
 };
 
 const AIPersonalizationTab = ({ data, onUpdate }: AIPersonalizationTabProps) => {
-  const [formData, setFormData] = useState<AIPersonalizationData>(data || {
+  // Ensure proper initialization of dates from localStorage
+  const initializeData = () => {
+    const processedData = { ...data };
+    
+    // Ensure health goals have proper Date objects
+    if (processedData.healthGoals) {
+      processedData.healthGoals = processedData.healthGoals.map(goal => ({
+        ...goal,
+        startDate: goal.startDate ? new Date(goal.startDate) : null,
+        targetDate: goal.targetDate ? new Date(goal.targetDate) : null
+      }));
+    }
+    
+    // Ensure chat history has proper Date objects
+    if (processedData.chatHistory) {
+      processedData.chatHistory = processedData.chatHistory.map(chat => ({
+        ...chat,
+        date: new Date(chat.date)
+      }));
+    }
+    
+    // Ensure mood tracking has proper Date objects
+    if (processedData.moodTracking) {
+      processedData.moodTracking = processedData.moodTracking.map(mood => ({
+        ...mood,
+        date: new Date(mood.date)
+      }));
+    }
+    
+    return processedData;
+  };
+  
+  const [formData, setFormData] = useState<AIPersonalizationData>(initializeData() || {
     frequentSymptoms: [],
     healthGoals: [],
     chatHistory: [],
@@ -56,7 +86,9 @@ const AIPersonalizationTab = ({ data, onUpdate }: AIPersonalizationTabProps) => 
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdate(formData);
+    // Create a deep copy to ensure we're not passing references
+    const dataToUpdate = JSON.parse(JSON.stringify(formData));
+    onUpdate(dataToUpdate);
     setIsEditing(false);
   };
   
@@ -128,7 +160,7 @@ const AIPersonalizationTab = ({ data, onUpdate }: AIPersonalizationTabProps) => 
     }));
   };
   
-  // Prepare data for recharts
+  // Prepare data for recharts with proper date handling
   const moodChartData = formData.moodTracking.map(entry => ({
     date: format(new Date(entry.date), 'MMM dd'),
     value: entry.mood === 'very-happy' ? 5 : 
