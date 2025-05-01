@@ -1,4 +1,7 @@
 
+import { Json } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
+
 export interface BasicInfo {
   fullName: string;
   gender: string;
@@ -84,26 +87,32 @@ export interface AccountSecurity {
   userRole: string;
 }
 
+export interface HealthGoal {
+  goal: string;
+  target: string;
+  progress: number;
+  startDate: Date | null;
+  targetDate: Date | null;
+}
+
+export interface ChatHistoryItem {
+  id: string;
+  topic: string;
+  date: Date;
+  summary: string;
+}
+
+export interface MoodTracking {
+  date: Date;
+  mood: 'very-sad' | 'sad' | 'neutral' | 'happy' | 'very-happy';
+  notes: string;
+}
+
 export interface AIPersonalizationData {
   frequentSymptoms: string[];
-  healthGoals: {
-    goal: string;
-    target: string;
-    progress: number;
-    startDate: Date | null;
-    targetDate: Date | null;
-  }[];
-  chatHistory: {
-    id: string;
-    topic: string;
-    date: Date;
-    summary: string;
-  }[];
-  moodTracking: {
-    date: Date;
-    mood: 'very-sad' | 'sad' | 'neutral' | 'happy' | 'very-happy';
-    notes: string;
-  }[];
+  healthGoals: HealthGoal[];
+  chatHistory: ChatHistoryItem[];
+  moodTracking: MoodTracking[];
 }
 
 export interface ProfileData {
@@ -117,11 +126,42 @@ export interface ProfileData {
 }
 
 // Helper function to convert Date objects to strings for storage
-const prepareDateObjectsForStorage = (data: ProfileData): ProfileData => {
-  const processedData = JSON.parse(JSON.stringify(data)) as ProfileData;
+const prepareDateObjectsForStorage = (data: ProfileData): any => {
+  const processedData = JSON.parse(JSON.stringify(data));
   
-  // Don't need to process most fields as they're already stored as strings
-  // But we need to handle the AI Personalization data specifically
+  // Convert Date objects to ISO strings for storage
+  if (processedData.basicInfo.dateOfBirth) {
+    processedData.basicInfo.dateOfBirth = processedData.basicInfo.dateOfBirth instanceof Date 
+      ? processedData.basicInfo.dateOfBirth.toISOString() 
+      : processedData.basicInfo.dateOfBirth;
+  }
+  
+  if (processedData.aiPersonalization) {
+    // Process health goals
+    if (processedData.aiPersonalization.healthGoals) {
+      processedData.aiPersonalization.healthGoals = processedData.aiPersonalization.healthGoals.map((goal: any) => ({
+        ...goal,
+        startDate: goal.startDate ? new Date(goal.startDate).toISOString() : null,
+        targetDate: goal.targetDate ? new Date(goal.targetDate).toISOString() : null
+      }));
+    }
+    
+    // Process chat history
+    if (processedData.aiPersonalization.chatHistory) {
+      processedData.aiPersonalization.chatHistory = processedData.aiPersonalization.chatHistory.map((chat: any) => ({
+        ...chat,
+        date: chat.date ? new Date(chat.date).toISOString() : null
+      }));
+    }
+    
+    // Process mood tracking
+    if (processedData.aiPersonalization.moodTracking) {
+      processedData.aiPersonalization.moodTracking = processedData.aiPersonalization.moodTracking.map((mood: any) => ({
+        ...mood,
+        date: mood.date ? new Date(mood.date).toISOString() : null
+      }));
+    }
+  }
   
   return processedData;
 };
@@ -163,26 +203,27 @@ const restoreDateObjects = (data: ProfileData): ProfileData => {
   return data;
 };
 
-import { supabase } from "@/integrations/supabase/client";
-
 // Updated utility functions to manage profile data persistence with Supabase integration
 export const saveProfileData = async (data: ProfileData, userId: string): Promise<{ success: boolean; error?: any }> => {
   try {
     // First try saving to Supabase if a userId is provided
     if (userId) {
+      // Process data for storage - convert Date objects to strings
+      const processedData = prepareDateObjectsForStorage(data);
+      
       // Process basic info
       const { error: basicInfoError } = await supabase
         .from('profiles')
         .upsert({
           id: userId,
-          name: data.basicInfo.fullName,
-          email: data.basicInfo.email,
-          gender: data.basicInfo.gender,
-          date_of_birth: data.basicInfo.dateOfBirth,
-          phone: data.basicInfo.contactNumber,
-          address: data.basicInfo.residentialAddress,
-          avatar_url: data.basicInfo.profilePicture,
-          updated_at: new Date()
+          name: processedData.basicInfo.fullName,
+          email: processedData.basicInfo.email,
+          gender: processedData.basicInfo.gender,
+          date_of_birth: processedData.basicInfo.dateOfBirth,
+          phone: processedData.basicInfo.contactNumber,
+          address: processedData.basicInfo.residentialAddress,
+          avatar_url: processedData.basicInfo.profilePicture,
+          updated_at: new Date().toISOString()
         });
       
       if (basicInfoError) throw basicInfoError;
@@ -192,14 +233,14 @@ export const saveProfileData = async (data: ProfileData, userId: string): Promis
         .from('medical_info')
         .upsert({
           user_id: userId,
-          blood_group: data.medicalInfo.bloodGroup,
-          known_allergies: data.medicalInfo.knownAllergies,
-          chronic_conditions: data.medicalInfo.chronicConditions,
-          current_medications: data.medicalInfo.currentMedications,
-          past_surgeries: data.medicalInfo.pastSurgeries,
-          vaccination_records: data.medicalInfo.vaccinationRecords,
-          family_medical_history: data.medicalInfo.familyMedicalHistory,
-          updated_at: new Date()
+          blood_group: processedData.medicalInfo.bloodGroup,
+          known_allergies: processedData.medicalInfo.knownAllergies,
+          chronic_conditions: processedData.medicalInfo.chronicConditions,
+          current_medications: processedData.medicalInfo.currentMedications,
+          past_surgeries: processedData.medicalInfo.pastSurgeries,
+          vaccination_records: processedData.medicalInfo.vaccinationRecords,
+          family_medical_history: processedData.medicalInfo.familyMedicalHistory,
+          updated_at: new Date().toISOString()
         });
       
       if (medicalInfoError) throw medicalInfoError;
@@ -209,16 +250,16 @@ export const saveProfileData = async (data: ProfileData, userId: string): Promis
         .from('health_metrics')
         .upsert({
           user_id: userId,
-          height: data.healthMetrics.height,
-          weight: data.healthMetrics.weight,
-          bmi: data.healthMetrics.bmi,
-          blood_pressure: data.healthMetrics.bloodPressure,
-          heart_rate: data.healthMetrics.heartRate,
-          glucose_levels: data.healthMetrics.glucoseLevels,
-          oxygen_saturation: data.healthMetrics.oxygenSaturation,
-          sleep_patterns: data.healthMetrics.sleepPatterns,
-          exercise_routine: data.healthMetrics.exerciseRoutine,
-          updated_at: new Date()
+          height: processedData.healthMetrics.height,
+          weight: processedData.healthMetrics.weight,
+          bmi: processedData.healthMetrics.bmi,
+          blood_pressure: processedData.healthMetrics.bloodPressure,
+          heart_rate: processedData.healthMetrics.heartRate,
+          glucose_levels: processedData.healthMetrics.glucoseLevels,
+          oxygen_saturation: processedData.healthMetrics.oxygenSaturation,
+          sleep_patterns: processedData.healthMetrics.sleepPatterns,
+          exercise_routine: processedData.healthMetrics.exerciseRoutine,
+          updated_at: new Date().toISOString()
         });
       
       if (healthMetricsError) throw healthMetricsError;
@@ -228,13 +269,13 @@ export const saveProfileData = async (data: ProfileData, userId: string): Promis
         .from('health_records')
         .upsert({
           user_id: userId,
-          medical_reports: data.healthRecords.medicalReports,
-          appointment_history: data.healthRecords.appointmentHistory,
-          hospital_visits: data.healthRecords.hospitalVisits,
-          insurance_provider: data.healthRecords.insuranceDetails.provider,
-          insurance_policy_number: data.healthRecords.insuranceDetails.policyNumber,
-          insurance_coverage: data.healthRecords.insuranceDetails.coverage,
-          updated_at: new Date()
+          medical_reports: processedData.healthRecords.medicalReports,
+          appointment_history: processedData.healthRecords.appointmentHistory,
+          hospital_visits: processedData.healthRecords.hospitalVisits,
+          insurance_provider: processedData.healthRecords.insuranceDetails.provider,
+          insurance_policy_number: processedData.healthRecords.insuranceDetails.policyNumber,
+          insurance_coverage: processedData.healthRecords.insuranceDetails.coverage,
+          updated_at: new Date().toISOString()
         });
       
       if (healthRecordsError) throw healthRecordsError;
@@ -244,14 +285,14 @@ export const saveProfileData = async (data: ProfileData, userId: string): Promis
         .from('reminders_preferences')
         .upsert({
           user_id: userId,
-          medication_reminders: data.remindersPreferences.medicationReminders,
-          appointment_reminders: data.remindersPreferences.appointmentReminders,
-          preferred_chat_time: data.remindersPreferences.preferredChatTime,
-          language_preference: data.remindersPreferences.languagePreference,
-          email_notifications: data.remindersPreferences.notificationPreferences.email,
-          sms_notifications: data.remindersPreferences.notificationPreferences.sms,
-          push_notifications: data.remindersPreferences.notificationPreferences.push,
-          updated_at: new Date()
+          medication_reminders: processedData.remindersPreferences.medicationReminders,
+          appointment_reminders: processedData.remindersPreferences.appointmentReminders,
+          preferred_chat_time: processedData.remindersPreferences.preferredChatTime,
+          language_preference: processedData.remindersPreferences.languagePreference,
+          email_notifications: processedData.remindersPreferences.notificationPreferences.email,
+          sms_notifications: processedData.remindersPreferences.notificationPreferences.sms,
+          push_notifications: processedData.remindersPreferences.notificationPreferences.push,
+          updated_at: new Date().toISOString()
         });
       
       if (remindersError) throw remindersError;
@@ -261,14 +302,14 @@ export const saveProfileData = async (data: ProfileData, userId: string): Promis
         .from('account_security')
         .upsert({
           user_id: userId,
-          username: data.accountSecurity.username,
-          two_factor_enabled: data.accountSecurity.twoFactorEnabled,
-          emergency_contact_name: data.accountSecurity.emergencyContact.name,
-          emergency_contact_relationship: data.accountSecurity.emergencyContact.relationship,
-          emergency_contact_phone: data.accountSecurity.emergencyContact.phone,
-          data_consent: data.accountSecurity.dataConsent,
-          user_role: data.accountSecurity.userRole,
-          updated_at: new Date()
+          username: processedData.accountSecurity.username,
+          two_factor_enabled: processedData.accountSecurity.twoFactorEnabled,
+          emergency_contact_name: processedData.accountSecurity.emergencyContact.name,
+          emergency_contact_relationship: processedData.accountSecurity.emergencyContact.relationship,
+          emergency_contact_phone: processedData.accountSecurity.emergencyContact.phone,
+          data_consent: processedData.accountSecurity.dataConsent,
+          user_role: processedData.accountSecurity.userRole,
+          updated_at: new Date().toISOString()
         });
       
       if (accountSecurityError) throw accountSecurityError;
@@ -277,11 +318,11 @@ export const saveProfileData = async (data: ProfileData, userId: string): Promis
       const { error: profilesError } = await supabase
         .from('profiles')
         .update({
-          frequent_symptoms: data.aiPersonalization.frequentSymptoms,
-          health_goals: data.aiPersonalization.healthGoals,
-          chat_history: data.aiPersonalization.chatHistory,
-          mood_tracking: data.aiPersonalization.moodTracking,
-          updated_at: new Date()
+          frequent_symptoms: processedData.aiPersonalization.frequentSymptoms,
+          health_goals: processedData.aiPersonalization.healthGoals,
+          chat_history: processedData.aiPersonalization.chatHistory,
+          mood_tracking: processedData.aiPersonalization.moodTracking,
+          updated_at: new Date().toISOString()
         })
         .eq('id', userId);
       
@@ -376,9 +417,9 @@ const fetchProfileDataFromSupabase = async (userId: string): Promise<ProfileData
         exerciseRoutine: healthMetricsData?.exercise_routine || '',
       },
       healthRecords: {
-        medicalReports: healthRecordsData?.medical_reports || [],
-        appointmentHistory: healthRecordsData?.appointment_history || [],
-        hospitalVisits: healthRecordsData?.hospital_visits || [],
+        medicalReports: (healthRecordsData?.medical_reports as HealthRecord[]) || [],
+        appointmentHistory: (healthRecordsData?.appointment_history as any[]) || [],
+        hospitalVisits: (healthRecordsData?.hospital_visits as any[]) || [],
         insuranceDetails: {
           provider: healthRecordsData?.insurance_provider || '',
           policyNumber: healthRecordsData?.insurance_policy_number || '',
@@ -408,10 +449,10 @@ const fetchProfileDataFromSupabase = async (userId: string): Promise<ProfileData
         userRole: accountSecurityData?.user_role || 'patient',
       },
       aiPersonalization: {
-        frequentSymptoms: profileData.frequent_symptoms || [],
-        healthGoals: profileData.health_goals || [],
-        chatHistory: profileData.chat_history || [],
-        moodTracking: profileData.mood_tracking || [],
+        frequentSymptoms: profileData.frequent_symptoms as string[] || [],
+        healthGoals: (profileData.health_goals as any[]) || [],
+        chatHistory: (profileData.chat_history as any[]) || [],
+        moodTracking: (profileData.mood_tracking as any[]) || [],
       },
     };
     
