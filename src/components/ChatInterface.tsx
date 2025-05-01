@@ -21,12 +21,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { generateId, processUserInput, MessageType, getSymptomAnalysis, getFAQResponse } from "@/utils/chatbotUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 const ChatInterface = () => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showRegistration, setShowRegistration] = useState(false);
-  const [userData, setUserData] = useState<{ email: string; name: string } | null>(null);
+  const [userData, setUserData] = useState<{ email: string; name: string; id: string } | null>(null);
   const [messages, setMessages] = useState<MessageType[]>([
     {
       id: generateId(),
@@ -52,6 +53,35 @@ const ChatInterface = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Check if user is already logged in with Supabase
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        setIsLoggedIn(true);
+        setUserData({
+          id: user.id,
+          email: user.email || '',
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'User'
+        });
+        
+        // Update welcome message with user's name
+        const welcomeMessage: MessageType = {
+          id: generateId(),
+          content: `Welcome back, ${user.user_metadata?.name || user.email?.split('@')[0] || 'User'}! How can I help you with your healthcare needs today?`,
+          sender: 'bot',
+          timestamp: new Date(),
+          type: 'options',
+          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+        };
+        setMessages([welcomeMessage]);
+      }
+    };
+    
+    checkAuth();
+  }, []);
+
   const simulateTyping = (callback: () => void) => {
     setIsTyping(true);
     const typingDelay = Math.random() * 1000 + 500; // Random delay between 500ms and 1500ms
@@ -65,7 +95,7 @@ const ChatInterface = () => {
     setMessages(prev => [...prev, message]);
   };
 
-  const handleLogin = (userData: { email: string; name: string }) => {
+  const handleLogin = async (userData: { email: string; name: string; id: string }) => {
     setIsLoggedIn(true);
     setUserData(userData);
     
@@ -83,7 +113,7 @@ const ChatInterface = () => {
     });
   };
 
-  const handleRegister = (userData: { email: string; name: string }) => {
+  const handleRegister = (userData: { email: string; name: string; id: string }) => {
     setIsLoggedIn(true);
     setUserData(userData);
     setShowRegistration(false);
@@ -110,7 +140,8 @@ const ChatInterface = () => {
     setShowRegistration(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsLoggedIn(false);
     setUserData(null);
     setMessages([
@@ -439,3 +470,31 @@ const ChatInterface = () => {
 };
 
 export default ChatInterface;
+
+function handleOptionClick(option: string): void {
+  throw new Error("Function not implemented.");
+}
+
+function handleSymptomCheckerComplete(analysis: string): void {
+  throw new Error("Function not implemented.");
+}
+
+function handleAppointmentComplete(details: string): void {
+  throw new Error("Function not implemented.");
+}
+
+function handleReminderComplete(details: string): void {
+  throw new Error("Function not implemented.");
+}
+
+function handleHealthTipSelect(content: string): void {
+  throw new Error("Function not implemented.");
+}
+
+function handleDoctorSelect(doctor: any): void {
+  throw new Error("Function not implemented.");
+}
+
+function handleSendMessage(content: string): void {
+  throw new Error("Function not implemented.");
+}

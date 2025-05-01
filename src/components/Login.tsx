@@ -6,18 +6,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar } from "@/components/ui/avatar";
 import { MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LoginProps {
-  onLogin: (userData: { email: string; name: string }) => void;
+  onLogin: (userData: { email: string; name: string; id: string }) => void;
   onRegister: () => void;
 }
-
-// Mock user database - in a real application, this would come from a backend service
-export const REGISTERED_USERS = [
-  { email: "john@example.com", name: "John", password: "password123" },
-  { email: "sarah@example.com", name: "Sarah", password: "secure456" },
-  { email: "demo@example.com", name: "Demo", password: "demo" }
-];
 
 const Login = ({ onLogin, onRegister }: LoginProps) => {
   const [email, setEmail] = useState("");
@@ -26,7 +20,7 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
   const [error, setError] = useState("");
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
@@ -38,24 +32,33 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
       return;
     }
     
-    // Check if user exists in our mock database
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      // Sign in with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      const user = REGISTERED_USERS.find(
-        (user) => user.email === email && user.password === password
-      );
+      if (error) throw error;
       
-      if (user) {
+      if (data.user) {
         toast({
           title: "Login successful",
           description: "Welcome back to your healthcare assistant!",
         });
-        onLogin({ email: user.email, name: user.name });
-      } else {
-        setError("Invalid email or password. Please try again or register.");
+        
+        onLogin({ 
+          email: data.user.email || email, 
+          name: data.user.user_metadata?.name || email.split('@')[0],
+          id: data.user.id
+        });
       }
-    }, 1000);
+    } catch (error: any) {
+      console.error("Login error:", error);
+      setError(error.message || "Invalid email or password. Please try again or register.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -121,7 +124,7 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
             Don't have an account? Register
           </Button>
           <p className="text-xs text-center text-gray-500 mt-2">
-            Demo login: Use email "demo@example.com" with password "demo"
+            Sign up to save your health profile data securely
           </p>
         </CardFooter>
       </Card>

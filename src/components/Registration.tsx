@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { UserPlus } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { REGISTERED_USERS } from "./Login";
+import { supabase } from "@/integrations/supabase/client";
 
 interface RegistrationProps {
-  onRegister: (userData: { email: string; name: string }) => void;
+  onRegister: (userData: { email: string; name: string; id: string }) => void;
   onBackToLogin: () => void;
 }
 
@@ -22,14 +22,14 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
   const [error, setError] = useState("");
   const { toast } = useToast();
 
-  const handleRegistration = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     
     // Simple validation
     if (!name || !email || !password) {
-      setError("Please fill in all fields");
+      setError("Please fill all required fields");
       setIsLoading(false);
       return;
     }
@@ -40,32 +40,38 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
       return;
     }
     
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      setIsLoading(false);
-      return;
-    }
-
-    // Check if user already exists
-    const existingUser = REGISTERED_USERS.find(user => user.email === email);
-    if (existingUser) {
-      setError("Email already registered. Please use a different email.");
-      setIsLoading(false);
-      return;
-    }
-    
-    // Add new user to the mock database
-    const newUser = { email, name, password };
-    REGISTERED_USERS.push(newUser);
-    
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Registration successful!",
-        description: "Your account has been created.",
+    try {
+      // Register with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name
+          }
+        }
       });
-      onRegister({ email, name });
-    }, 1000);
+      
+      if (error) throw error;
+      
+      if (data.user) {
+        toast({
+          title: "Registration successful",
+          description: "Your account has been created successfully!",
+        });
+        
+        onRegister({ 
+          email: data.user.email || email, 
+          name: name,
+          id: data.user.id
+        });
+      }
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      setError(error.message || "Registration failed. Please try again with a different email.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -74,16 +80,16 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <Avatar className="h-12 w-12 bg-healthcare-primary">
-              <UserPlus className="h-6 w-6 text-white" />
+              <MessageCircle className="h-6 w-6 text-white" />
             </Avatar>
           </div>
-          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
+          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
           <CardDescription>
-            Register to access the healthcare assistant
+            Sign up to use the healthcare assistant
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegistration}>
+          <form onSubmit={handleRegister}>
             <div className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="name" className="text-sm font-medium">Full Name</label>
@@ -138,7 +144,7 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
               className="w-full mt-6 bg-healthcare-primary hover:bg-healthcare-dark"
               disabled={isLoading}
             >
-              {isLoading ? "Creating account..." : "Register"}
+              {isLoading ? "Creating Account..." : "Register"}
             </Button>
           </form>
         </CardContent>
@@ -150,6 +156,9 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
           >
             Already have an account? Login
           </Button>
+          <p className="text-xs text-center text-gray-500 mt-2">
+            Your data will be stored securely in our database
+          </p>
         </CardFooter>
       </Card>
     </div>
