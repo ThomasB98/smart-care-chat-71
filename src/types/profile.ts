@@ -385,6 +385,11 @@ const fetchProfileDataFromSupabase = async (userId: string): Promise<ProfileData
     // If essential profile data is missing, return null
     if (!profileData) return null;
     
+    // Fix: Properly handle and type-cast the JSON data from Supabase
+    const medicalReports = healthRecordsData?.medical_reports as Json[] || [];
+    const appointmentHistory = healthRecordsData?.appointment_history as Json[] || [];
+    const hospitalVisits = healthRecordsData?.hospital_visits as Json[] || [];
+    
     // Map Supabase data to ProfileData structure
     const profileObject: ProfileData = {
       basicInfo: {
@@ -417,9 +422,32 @@ const fetchProfileDataFromSupabase = async (userId: string): Promise<ProfileData
         exerciseRoutine: healthMetricsData?.exercise_routine || '',
       },
       healthRecords: {
-        medicalReports: (healthRecordsData?.medical_reports as HealthRecord[]) || [],
-        appointmentHistory: (healthRecordsData?.appointment_history as any[]) || [],
-        hospitalVisits: (healthRecordsData?.hospital_visits as any[]) || [],
+        // Fix: Properly cast JSON data to our expected types
+        medicalReports: Array.isArray(medicalReports) 
+          ? medicalReports.map(record => ({
+              id: (record as any).id || '',
+              name: (record as any).name || '',
+              type: (record as any).type || '',
+              date: (record as any).date || '',
+              fileUrl: (record as any).fileUrl
+            })) as HealthRecord[]
+          : [],
+        appointmentHistory: Array.isArray(appointmentHistory)
+          ? appointmentHistory.map(appt => ({
+              id: (appt as any).id || '',
+              doctor: (appt as any).doctor || '',
+              date: (appt as any).date || '',
+              purpose: (appt as any).purpose || ''
+            }))
+          : [],
+        hospitalVisits: Array.isArray(hospitalVisits)
+          ? hospitalVisits.map(visit => ({
+              id: (visit as any).id || '',
+              hospital: (visit as any).hospital || '',
+              date: (visit as any).date || '',
+              reason: (visit as any).reason || ''
+            }))
+          : [],
         insuranceDetails: {
           provider: healthRecordsData?.insurance_provider || '',
           policyNumber: healthRecordsData?.insurance_policy_number || '',
@@ -449,10 +477,25 @@ const fetchProfileDataFromSupabase = async (userId: string): Promise<ProfileData
         userRole: accountSecurityData?.user_role || 'patient',
       },
       aiPersonalization: {
-        frequentSymptoms: profileData.frequent_symptoms as string[] || [],
-        healthGoals: (profileData.health_goals as any[]) || [],
-        chatHistory: (profileData.chat_history as any[]) || [],
-        moodTracking: (profileData.mood_tracking as any[]) || [],
+        frequentSymptoms: (profileData.frequent_symptoms as string[]) || [],
+        healthGoals: (profileData.health_goals as any[] || []).map(goal => ({
+          goal: goal.goal || '',
+          target: goal.target || '',
+          progress: goal.progress || 0,
+          startDate: goal.startDate ? new Date(goal.startDate) : null,
+          targetDate: goal.targetDate ? new Date(goal.targetDate) : null
+        })),
+        chatHistory: (profileData.chat_history as any[] || []).map(chat => ({
+          id: chat.id || '',
+          topic: chat.topic || '',
+          date: new Date(chat.date || new Date()),
+          summary: chat.summary || ''
+        })),
+        moodTracking: (profileData.mood_tracking as any[] || []).map(mood => ({
+          date: new Date(mood.date || new Date()),
+          mood: mood.mood || 'neutral',
+          notes: mood.notes || ''
+        })),
       },
     };
     
