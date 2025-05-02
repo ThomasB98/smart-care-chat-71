@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, LineChart, Bar as RechartsBar, Line as RechartsLine, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { MessageType } from "@/utils/chatbotUtils";
 
 interface AIPersonalizationTabProps {
   data: AIPersonalizationData;
@@ -427,6 +428,23 @@ const AIPersonalizationTab = ({ data, onUpdate }: AIPersonalizationTabProps) => 
                       </span>
                     </div>
                     <p className="text-sm mt-2">{chat.summary}</p>
+                    
+                    {/* Show message preview if available */}
+                    {chat.messages && chat.messages.length > 0 && (
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Conversation Snippet:</p>
+                        <div className="max-h-28 overflow-y-auto text-xs space-y-1">
+                          {chat.messages.slice(0, 3).map((msg: MessageType, i) => (
+                            <div key={i} className={`${msg.sender === 'user' ? 'text-healthcare-primary' : 'text-gray-600'}`}>
+                              <strong>{msg.sender === 'user' ? 'You' : 'Assistant'}</strong>: {msg.content.substring(0, 50)}{msg.content.length > 50 ? '...' : ''}
+                            </div>
+                          ))}
+                          {chat.messages.length > 3 && (
+                            <p className="text-xs text-gray-400 italic">+ {chat.messages.length - 3} more messages</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>

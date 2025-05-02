@@ -1,6 +1,6 @@
-
 import { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
+import { MessageType } from "@/utils/chatbotUtils";
 
 export interface BasicInfo {
   fullName: string;
@@ -100,6 +100,7 @@ export interface ChatHistoryItem {
   topic: string;
   date: Date;
   summary: string;
+  messages?: MessageType[]; // Add this field to store actual messages
 }
 
 export interface MoodTracking {
@@ -148,10 +149,22 @@ const prepareDateObjectsForStorage = (data: ProfileData): any => {
     
     // Process chat history
     if (processedData.aiPersonalization.chatHistory) {
-      processedData.aiPersonalization.chatHistory = processedData.aiPersonalization.chatHistory.map((chat: any) => ({
-        ...chat,
-        date: chat.date ? new Date(chat.date).toISOString() : null
-      }));
+      processedData.aiPersonalization.chatHistory = processedData.aiPersonalization.chatHistory.map((chat: any) => {
+        const processedChat = {
+          ...chat,
+          date: chat.date ? new Date(chat.date).toISOString() : null
+        };
+        
+        // Process messages if they exist
+        if (chat.messages && Array.isArray(chat.messages)) {
+          processedChat.messages = chat.messages.map((message: any) => ({
+            ...message,
+            timestamp: message.timestamp ? new Date(message.timestamp).toISOString() : null
+          }));
+        }
+        
+        return processedChat;
+      });
     }
     
     // Process mood tracking
@@ -180,10 +193,22 @@ const restoreDateObjects = (data: ProfileData): ProfileData => {
     
     // Convert chat history dates
     if (data.aiPersonalization.chatHistory) {
-      data.aiPersonalization.chatHistory = data.aiPersonalization.chatHistory.map(chat => ({
-        ...chat,
-        date: new Date(chat.date)
-      }));
+      data.aiPersonalization.chatHistory = data.aiPersonalization.chatHistory.map(chat => {
+        const restoredChat = {
+          ...chat,
+          date: new Date(chat.date)
+        };
+        
+        // Restore message timestamps if they exist
+        if (chat.messages && Array.isArray(chat.messages)) {
+          restoredChat.messages = chat.messages.map((message: any) => ({
+            ...message,
+            timestamp: message.timestamp ? new Date(message.timestamp) : new Date()
+          }));
+        }
+        
+        return restoredChat;
+      });
     }
     
     // Convert mood tracking dates
@@ -489,7 +514,13 @@ const fetchProfileDataFromSupabase = async (userId: string): Promise<ProfileData
           id: chat.id || '',
           topic: chat.topic || '',
           date: new Date(chat.date || new Date()),
-          summary: chat.summary || ''
+          summary: chat.summary || '',
+          messages: Array.isArray(chat.messages) 
+            ? chat.messages.map((msg: any) => ({
+                ...msg,
+                timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
+              }))
+            : undefined
         })),
         moodTracking: (profileData.mood_tracking as any[] || []).map(mood => ({
           date: new Date(mood.date || new Date()),

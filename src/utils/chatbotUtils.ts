@@ -1,15 +1,14 @@
-
 import { symptoms, symptomAnalysis, healthTips, healthFAQs } from "../data/healthData";
 
-export type MessageType = {
+export interface MessageType {
   id: string;
   content: string;
   sender: 'user' | 'bot';
   timestamp: Date;
-  type: 'text' | 'symptom-checker' | 'appointment' | 'reminder' | 'health-tip' | 'options';
+  type: 'text' | 'options' | 'symptom-checker' | 'appointment' | 'reminder' | 'health-tip';
   options?: string[];
-  payload?: any;
-};
+  messages?: MessageType[]; // For storing message history
+}
 
 // Generate a unique ID for messages
 export const generateId = (): string => {

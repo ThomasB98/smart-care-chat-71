@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -22,22 +23,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { generateId, processUserInput, MessageType, getSymptomAnalysis, getFAQResponse } from "@/utils/chatbotUtils";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { ProfileData, loadProfileData, saveProfileData } from "@/types/profile";
 
 const ChatInterface = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showRegistration, setShowRegistration] = useState(false);
   const [userData, setUserData] = useState<{ email: string; name: string; id: string } | null>(null);
-  const [messages, setMessages] = useState<MessageType[]>([
-    {
-      id: generateId(),
-      content: "Hello! I'm your Smart Healthcare Assistant. How can I help you today?",
-      sender: 'bot',
-      timestamp: new Date(),
-      type: 'options',
-      options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
-    }
-  ]);
+  const [messages, setMessages] = useState<MessageType[]>([]);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   
   const [isTyping, setIsTyping] = useState(false);
   const [activeComponent, setActiveComponent] = useState<string | null>(null);
@@ -60,27 +56,134 @@ const ChatInterface = () => {
       
       if (user) {
         setIsLoggedIn(true);
-        setUserData({
+        const userDataObj = {
           id: user.id,
           email: user.email || '',
           name: user.user_metadata?.name || user.email?.split('@')[0] || 'User'
-        });
-        
-        // Update welcome message with user's name
-        const welcomeMessage: MessageType = {
-          id: generateId(),
-          content: `Welcome back, ${user.user_metadata?.name || user.email?.split('@')[0] || 'User'}! How can I help you with your healthcare needs today?`,
-          sender: 'bot',
-          timestamp: new Date(),
-          type: 'options',
-          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
         };
-        setMessages([welcomeMessage]);
+        setUserData(userDataObj);
+        
+        // Load user profile data
+        try {
+          const profile = await loadProfileData(userDataObj);
+          setProfileData(profile);
+          
+          // If we have stored chat history, use it
+          if (profile.aiPersonalization.chatHistory.length > 0) {
+            // Just load the welcome message for now
+            // We'll load chat history when the user clicks on history
+            const welcomeMessage: MessageType = {
+              id: generateId(),
+              content: `Welcome back, ${userDataObj.name}! How can I help you with your healthcare needs today?`,
+              sender: 'bot',
+              timestamp: new Date(),
+              type: 'options',
+              options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors", "View chat history"]
+            };
+            setMessages([welcomeMessage]);
+          } else {
+            // Update welcome message with user's name
+            const welcomeMessage: MessageType = {
+              id: generateId(),
+              content: `Welcome back, ${userDataObj.name}! How can I help you with your healthcare needs today?`,
+              sender: 'bot',
+              timestamp: new Date(),
+              type: 'options',
+              options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+            };
+            setMessages([welcomeMessage]);
+          }
+        } catch (error) {
+          console.error("Error loading profile data:", error);
+          // Fallback welcome message
+          const welcomeMessage: MessageType = {
+            id: generateId(),
+            content: `Welcome back, ${userDataObj.name}! How can I help you with your healthcare needs today?`,
+            sender: 'bot',
+            timestamp: new Date(),
+            type: 'options',
+            options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+          };
+          setMessages([welcomeMessage]);
+        }
+      } else {
+        // Default message for non-logged in users
+        setMessages([
+          {
+            id: generateId(),
+            content: "Hello! I'm your Smart Healthcare Assistant. How can I help you today?",
+            sender: 'bot',
+            timestamp: new Date(),
+            type: 'options',
+            options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+          }
+        ]);
       }
     };
     
     checkAuth();
   }, []);
+
+  // Save chat history when messages change
+  useEffect(() => {
+    const saveHistory = async () => {
+      // Only save if user is logged in and we have some meaningful conversation
+      if (isLoggedIn && userData && profileData && messages.length > 2) {
+        // Create a chat summary
+        const userMessages = messages
+          .filter(msg => msg.sender === 'user')
+          .map(msg => msg.content)
+          .slice(-5) // Get last 5 messages
+          .join(", ");
+        
+        const botMessages = messages
+          .filter(msg => msg.sender === 'bot' && msg.type === 'text')
+          .map(msg => msg.content)
+          .slice(-3) // Get last 3 messages
+          .join(", ");
+
+        // Only save meaningful conversations
+        if (userMessages.length > 10) {
+          // Create a summary of the conversation
+          const topic = userMessages.split(" ").slice(0, 5).join(" ") + "...";
+          const summary = `User asked about: ${userMessages}. Bot provided: ${botMessages}`;
+          
+          // Create a chat history item
+          const chatHistoryItem = {
+            id: generateId(),
+            topic,
+            date: new Date(),
+            summary,
+            messages: messages.slice(-10) // Store last 10 messages
+          };
+          
+          // Add to profile data
+          const updatedProfileData = { 
+            ...profileData,
+            aiPersonalization: {
+              ...profileData.aiPersonalization,
+              chatHistory: [
+                chatHistoryItem,
+                ...profileData.aiPersonalization.chatHistory.slice(0, 9) // Keep only 10 most recent
+              ]
+            }
+          };
+          
+          // Save the updated profile
+          try {
+            await saveProfileData(updatedProfileData, userData.id);
+            setProfileData(updatedProfileData);
+          } catch (error) {
+            console.error("Error saving chat history:", error);
+          }
+        }
+      }
+    };
+    
+    // Use a debounce mechanism to avoid too frequent saves
+    const timeoutId = setTimeout(saveHistory, 5000);
+    return () => clearTimeout(timeoutId);
+  }, [messages, isLoggedIn, userData, profileData]);
 
   const simulateTyping = (callback: () => void) => {
     setIsTyping(true);
@@ -99,37 +202,85 @@ const ChatInterface = () => {
     setIsLoggedIn(true);
     setUserData(userData);
     
-    // Update welcome message with user's name
-    simulateTyping(() => {
-      const welcomeMessage: MessageType = {
-        id: generateId(),
-        content: `Welcome back, ${userData.name}! How can I help you with your healthcare needs today?`,
-        sender: 'bot',
-        timestamp: new Date(),
-        type: 'options',
-        options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
-      };
-      setMessages([welcomeMessage]);
-    });
+    // Load user profile data
+    try {
+      const profile = await loadProfileData(userData);
+      setProfileData(profile);
+      
+      // Update welcome message with user's name
+      simulateTyping(() => {
+        const welcomeMessage: MessageType = {
+          id: generateId(),
+          content: `Welcome back, ${userData.name}! How can I help you with your healthcare needs today?`,
+          sender: 'bot',
+          timestamp: new Date(),
+          type: 'options',
+          options: profile.aiPersonalization.chatHistory.length > 0 
+            ? ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors", "View chat history"] 
+            : ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+        };
+        setMessages([welcomeMessage]);
+      });
+    } catch (error) {
+      console.error("Error loading profile data:", error);
+      toast({
+        title: "Error loading profile",
+        description: "Could not load your profile data. Some features may be limited.",
+        variant: "destructive"
+      });
+      
+      // Fallback welcome message
+      simulateTyping(() => {
+        const welcomeMessage: MessageType = {
+          id: generateId(),
+          content: `Welcome back, ${userData.name}! How can I help you with your healthcare needs today?`,
+          sender: 'bot',
+          timestamp: new Date(),
+          type: 'options',
+          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+        };
+        setMessages([welcomeMessage]);
+      });
+    }
   };
 
-  const handleRegister = (userData: { email: string; name: string; id: string }) => {
+  const handleRegister = async (userData: { email: string; name: string; id: string }) => {
     setIsLoggedIn(true);
     setUserData(userData);
     setShowRegistration(false);
     
-    // Update welcome message for new user
-    simulateTyping(() => {
-      const welcomeMessage: MessageType = {
-        id: generateId(),
-        content: `Welcome, ${userData.name}! Thank you for registering. I'm your healthcare assistant. How can I help you today?`,
-        sender: 'bot',
-        timestamp: new Date(),
-        type: 'options',
-        options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
-      };
-      setMessages([welcomeMessage]);
-    });
+    // Load or create new profile
+    try {
+      const profile = await loadProfileData(userData);
+      setProfileData(profile);
+      
+      // Update welcome message for new user
+      simulateTyping(() => {
+        const welcomeMessage: MessageType = {
+          id: generateId(),
+          content: `Welcome, ${userData.name}! Thank you for registering. I'm your healthcare assistant. How can I help you today?`,
+          sender: 'bot',
+          timestamp: new Date(),
+          type: 'options',
+          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+        };
+        setMessages([welcomeMessage]);
+      });
+    } catch (error) {
+      console.error("Error loading profile data:", error);
+      // Fallback welcome message
+      simulateTyping(() => {
+        const welcomeMessage: MessageType = {
+          id: generateId(),
+          content: `Welcome, ${userData.name}! Thank you for registering. I'm your healthcare assistant. How can I help you today?`,
+          sender: 'bot',
+          timestamp: new Date(),
+          type: 'options',
+          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+        };
+        setMessages([welcomeMessage]);
+      });
+    }
   };
 
   const switchToRegister = () => {
@@ -144,6 +295,7 @@ const ChatInterface = () => {
     await supabase.auth.signOut();
     setIsLoggedIn(false);
     setUserData(null);
+    setProfileData(null);
     setMessages([
       {
         id: generateId(),
@@ -217,6 +369,30 @@ const ChatInterface = () => {
       } else if (option === "Find nearby doctors") {
         setActiveComponent('nearby-doctors');
         return;
+      } else if (option === "View chat history") {
+        // Show chat history
+        if (profileData && profileData.aiPersonalization.chatHistory.length > 0) {
+          const chatHistory = profileData.aiPersonalization.chatHistory;
+          const historyMessage: MessageType = {
+            id: generateId(),
+            content: "Here are your recent conversations:",
+            sender: 'bot',
+            timestamp: new Date(),
+            type: 'options',
+            options: chatHistory.map(history => `${history.topic} (${new Date(history.date).toLocaleDateString()})`)
+          };
+          addMessage(historyMessage);
+        } else {
+          const noHistoryMessage: MessageType = {
+            id: generateId(),
+            content: "You don't have any chat history yet. Start a conversation to build your history.",
+            sender: 'bot',
+            timestamp: new Date(),
+            type: 'text'
+          };
+          addMessage(noHistoryMessage);
+        }
+        return;
       } else if (option === "Ask health questions") {
         const botResponse: MessageType = {
           id: generateId(),
@@ -228,6 +404,25 @@ const ChatInterface = () => {
         };
         addMessage(botResponse);
         return;
+      }
+      
+      // Check if it's a chat history option
+      if (profileData) {
+        const historyItem = profileData.aiPersonalization.chatHistory.find(
+          history => `${history.topic} (${new Date(history.date).toLocaleDateString()})` === option
+        );
+        
+        if (historyItem) {
+          const summaryMessage: MessageType = {
+            id: generateId(),
+            content: `Summary of conversation on ${new Date(historyItem.date).toLocaleDateString()}: ${historyItem.summary}`,
+            sender: 'bot',
+            timestamp: new Date(),
+            type: 'text'
+          };
+          addMessage(summaryMessage);
+          return;
+        }
       }
       
       // Check if it's a symptom from the list
@@ -470,31 +665,3 @@ const ChatInterface = () => {
 };
 
 export default ChatInterface;
-
-function handleOptionClick(option: string): void {
-  throw new Error("Function not implemented.");
-}
-
-function handleSymptomCheckerComplete(analysis: string): void {
-  throw new Error("Function not implemented.");
-}
-
-function handleAppointmentComplete(details: string): void {
-  throw new Error("Function not implemented.");
-}
-
-function handleReminderComplete(details: string): void {
-  throw new Error("Function not implemented.");
-}
-
-function handleHealthTipSelect(content: string): void {
-  throw new Error("Function not implemented.");
-}
-
-function handleDoctorSelect(doctor: any): void {
-  throw new Error("Function not implemented.");
-}
-
-function handleSendMessage(content: string): void {
-  throw new Error("Function not implemented.");
-}
