@@ -72,7 +72,7 @@ export const processUserInput = (userInput: string): MessageType => {
       options: healthFAQs.map(faq => faq.question)
     };
   }
-  else if (userInputLower.includes('hospital') || userInputLower.includes('nearby') || userInputLower.includes('find') || userInputLower.includes('location')) {
+  else if (userInputLower.includes('hospital') || userInputLower.includes('nearby') || userInputLower.includes('find') || userInputLower.includes('location') || userInputLower.includes('doctors near me')) {
     return {
       id: generateId(),
       content: "I can help you find nearby hospitals and doctors. Would you like me to show you healthcare facilities in your area?",
