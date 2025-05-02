@@ -1,8 +1,10 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface NearbyDoctorsProps {
   onSelectDoctor: (doctor: Doctor) => void;
@@ -51,6 +53,12 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapboxToken, setMapboxToken] = useState("");
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [hospitals, setHospitals] = useState<any[]>([]);
+  
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
 
   // Get user's location
   useEffect(() => {
@@ -58,10 +66,11 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
+          const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
-          });
+          };
+          setUserLocation(location);
           
           // In a real implementation, we would use Google Maps API to find nearby doctors
           // For now, we'll use mock data
@@ -84,15 +93,118 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
     }
   }, []);
 
+  // Initialize map when user location and mapbox token are available
+  useEffect(() => {
+    if (!mapContainer.current || !userLocation || !mapboxToken) return;
+
+    // Initialize map
+    mapboxgl.accessToken = mapboxToken;
+    
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [userLocation.lng, userLocation.lat],
+      zoom: 13
+    });
+
+    // Add navigation controls
+    map.current.addControl(
+      new mapboxgl.NavigationControl(),
+      'top-right'
+    );
+
+    // Add user marker
+    new mapboxgl.Marker({ color: "#3b82f6" })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .setPopup(new mapboxgl.Popup().setHTML("<p>Your location</p>"))
+      .addTo(map.current);
+
+    // Find nearby hospitals when the map loads
+    map.current.on('load', () => {
+      findNearbyHospitals([userLocation.lng, userLocation.lat]);
+    });
+
+    // Cleanup
+    return () => {
+      map.current?.remove();
+    };
+  }, [userLocation, mapboxToken]);
+
+  const findNearbyHospitals = (location: [number, number]) => {
+    if (!mapboxToken) return;
+    
+    // Create a request to the Geocoding API to find hospitals
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/hospital.json?proximity=${location[0]},${location[1]}&access_token=${mapboxToken}&types=poi&limit=10`;
+    
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        // Store hospitals data
+        setHospitals(data.features);
+        
+        // Add hospital markers to map
+        data.features.forEach((feature: any) => {
+          const el = document.createElement('div');
+          el.className = 'hospital-marker';
+          el.style.width = '25px';
+          el.style.height = '25px';
+          el.style.backgroundImage = 'url(https://img.icons8.com/color/48/000000/hospital-2.png)';
+          el.style.backgroundSize = 'cover';
+          
+          new mapboxgl.Marker(el)
+            .setLngLat(feature.center)
+            .setPopup(
+              new mapboxgl.Popup({ offset: 25 })
+                .setHTML(`
+                  <h3 style="font-weight: bold; margin-bottom: 5px;">${feature.text}</h3>
+                  <p style="font-size: 12px; margin: 0">${feature.place_name}</p>
+                `)
+            )
+            .addTo(map.current!);
+        });
+      })
+      .catch(err => {
+        console.error("Error fetching hospitals:", err);
+        setError("Unable to fetch nearby hospitals.");
+      });
+  };
+
+  const handleTokenSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mapboxToken) {
+      setShowTokenInput(false);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Nearby Doctors</CardTitle>
+        <CardTitle>Nearby Healthcare Providers</CardTitle>
         <CardDescription>
-          Find and select a doctor near your location
+          Find hospitals and doctors near your location
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {!mapboxToken ? (
+          <div className="mb-6 p-4 border rounded-md">
+            <p className="mb-2">To see nearby hospitals on the map, please enter your Mapbox access token:</p>
+            <form onSubmit={handleTokenSubmit} className="flex flex-col space-y-2">
+              <input
+                type="text"
+                value={mapboxToken}
+                onChange={(e) => setMapboxToken(e.target.value)}
+                placeholder="Enter your Mapbox access token"
+                className="border rounded-md p-2"
+              />
+              <Button type="submit" disabled={!mapboxToken}>Submit Token</Button>
+            </form>
+            <p className="text-xs mt-2 text-gray-500">You can get a token from <a href="https://www.mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-healthcare-primary">mapbox.com</a></p>
+          </div>
+        ) : (
+          // Map container
+          <div ref={mapContainer} className="w-full h-64 mb-6 rounded-md border" />
+        )}
+        
         {loading ? (
           <div className="flex justify-center items-center py-8">
             <div className="animate-pulse text-healthcare-primary">Loading nearby doctors...</div>
@@ -103,36 +215,53 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
             <p className="mt-2">Showing available doctors instead.</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {doctors.map((doctor) => (
-              <div 
-                key={doctor.id} 
-                className="border rounded-md p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                onClick={() => onSelectDoctor(doctor)}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">{doctor.name}</h3>
-                    <p className="text-sm text-gray-600">{doctor.specialty}</p>
-                  </div>
-                  <span className="text-sm bg-healthcare-light text-healthcare-primary px-2 py-1 rounded-full">
-                    {doctor.distance}
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center text-sm text-gray-600">
-                  <MapPin className="h-3 w-3 mr-1" />
-                  {doctor.address}
-                </div>
-                <div className="mt-1 flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i} className={`text-sm ${i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-300"}`}>
-                      ★
+          <div>
+            <h3 className="font-semibold mb-2">Doctors</h3>
+            <div className="space-y-4">
+              {doctors.map((doctor) => (
+                <div 
+                  key={doctor.id} 
+                  className="border rounded-md p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => onSelectDoctor(doctor)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium">{doctor.name}</h3>
+                      <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                    </div>
+                    <span className="text-sm bg-healthcare-light text-healthcare-primary px-2 py-1 rounded-full">
+                      {doctor.distance}
                     </span>
+                  </div>
+                  <div className="mt-2 flex items-center text-sm text-gray-600">
+                    <MapPin className="h-3 w-3 mr-1" />
+                    {doctor.address}
+                  </div>
+                  <div className="mt-1 flex items-center">
+                    {[...Array(5)].map((_, i) => (
+                      <span key={i} className={`text-sm ${i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-300"}`}>
+                        ★
+                      </span>
+                    ))}
+                    <span className="ml-1 text-xs text-gray-600">({doctor.rating})</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {hospitals.length > 0 && (
+              <div className="mt-6">
+                <h3 className="font-semibold mb-2">Nearby Hospitals</h3>
+                <div className="space-y-3">
+                  {hospitals.map((hospital, index) => (
+                    <div key={index} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
+                      <h4 className="font-medium">{hospital.text}</h4>
+                      <p className="text-sm text-gray-600">{hospital.place_name}</p>
+                    </div>
                   ))}
-                  <span className="ml-1 text-xs text-gray-600">({doctor.rating})</span>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </CardContent>

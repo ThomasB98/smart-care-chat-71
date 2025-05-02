@@ -1,3 +1,4 @@
+
 import { symptoms, symptomAnalysis, healthTips, healthFAQs } from "../data/healthData";
 
 export interface MessageType {
@@ -5,7 +6,7 @@ export interface MessageType {
   content: string;
   sender: 'user' | 'bot';
   timestamp: Date;
-  type: 'text' | 'options' | 'symptom-checker' | 'appointment' | 'reminder' | 'health-tip';
+  type: 'text' | 'options' | 'symptom-checker' | 'appointment' | 'reminder' | 'health-tip' | 'nearby-doctors';
   options?: string[];
   messages?: MessageType[]; // For storing message history
 }
@@ -68,10 +69,19 @@ export const processUserInput = (userInput: string): MessageType => {
       options: healthFAQs.map(faq => faq.question)
     };
   }
+  else if (userInputLower.includes('hospital') || userInputLower.includes('nearby') || userInputLower.includes('find') || userInputLower.includes('location')) {
+    return {
+      id: generateId(),
+      content: "I can help you find nearby hospitals and doctors. Would you like me to show you healthcare facilities in your area?",
+      sender: 'bot',
+      timestamp: new Date(),
+      type: 'nearby-doctors'
+    };
+  }
   else if (userInputLower.includes('hello') || userInputLower.includes('hi')) {
     return {
       id: generateId(),
-      content: "Hello! I'm your Smart Healthcare Assistant. How can I help you today? You can ask about symptoms, schedule an appointment, set medication reminders, or get health tips.",
+      content: "Hello! I'm your Smart Healthcare Assistant. How can I help you today? You can ask about symptoms, schedule an appointment, set medication reminders, get health tips, or find nearby healthcare facilities.",
       sender: 'bot',
       timestamp: new Date(),
       type: 'text'
@@ -80,11 +90,11 @@ export const processUserInput = (userInput: string): MessageType => {
   else {
     return {
       id: generateId(),
-      content: "I'm here to help with your health concerns. You can ask me about symptoms, schedule an appointment, set medication reminders, or get health tips and information.",
+      content: "I'm here to help with your health concerns. You can ask me about symptoms, schedule an appointment, set medication reminders, get health tips and information, or find nearby healthcare facilities.",
       sender: 'bot',
       timestamp: new Date(),
       type: 'options',
-      options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions"]
+      options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
     };
   }
 };
