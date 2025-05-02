@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { MapPin } from "lucide-react";
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { MAPBOX_TOKEN } from "@/utils/chatbotUtils";
 
 interface NearbyDoctorsProps {
   onSelectDoctor: (doctor: Doctor) => void;
@@ -53,8 +54,6 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [mapboxToken, setMapboxToken] = useState("");
-  const [showTokenInput, setShowTokenInput] = useState(false);
   const [hospitals, setHospitals] = useState<any[]>([]);
   
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -93,12 +92,12 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
     }
   }, []);
 
-  // Initialize map when user location and mapbox token are available
+  // Initialize map when user location is available
   useEffect(() => {
-    if (!mapContainer.current || !userLocation || !mapboxToken) return;
+    if (!mapContainer.current || !userLocation) return;
 
     // Initialize map
-    mapboxgl.accessToken = mapboxToken;
+    mapboxgl.accessToken = MAPBOX_TOKEN;
     
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -128,13 +127,11 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
     return () => {
       map.current?.remove();
     };
-  }, [userLocation, mapboxToken]);
+  }, [userLocation]);
 
   const findNearbyHospitals = (location: [number, number]) => {
-    if (!mapboxToken) return;
-    
     // Create a request to the Geocoding API to find hospitals
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/hospital.json?proximity=${location[0]},${location[1]}&access_token=${mapboxToken}&types=poi&limit=10`;
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/hospital.json?proximity=${location[0]},${location[1]}&access_token=${MAPBOX_TOKEN}&types=poi&limit=10`;
     
     fetch(url)
       .then(response => response.json())
@@ -169,13 +166,6 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
       });
   };
 
-  const handleTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mapboxToken) {
-      setShowTokenInput(false);
-    }
-  };
-
   return (
     <Card className="w-full">
       <CardHeader>
@@ -185,25 +175,8 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!mapboxToken ? (
-          <div className="mb-6 p-4 border rounded-md">
-            <p className="mb-2">To see nearby hospitals on the map, please enter your Mapbox access token:</p>
-            <form onSubmit={handleTokenSubmit} className="flex flex-col space-y-2">
-              <input
-                type="text"
-                value={mapboxToken}
-                onChange={(e) => setMapboxToken(e.target.value)}
-                placeholder="Enter your Mapbox access token"
-                className="border rounded-md p-2"
-              />
-              <Button type="submit" disabled={!mapboxToken}>Submit Token</Button>
-            </form>
-            <p className="text-xs mt-2 text-gray-500">You can get a token from <a href="https://www.mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-healthcare-primary">mapbox.com</a></p>
-          </div>
-        ) : (
-          // Map container
-          <div ref={mapContainer} className="w-full h-64 mb-6 rounded-md border" />
-        )}
+        {/* Map container */}
+        <div ref={mapContainer} className="w-full h-64 mb-6 rounded-md border" />
         
         {loading ? (
           <div className="flex justify-center items-center py-8">

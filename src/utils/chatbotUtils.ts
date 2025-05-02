@@ -16,6 +16,9 @@ export const generateId = (): string => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
+// Mapbox token for maps functionality
+export const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvbWFzYjk4IiwiYSI6ImNtYTc3Z2N4dDB2ZzAybHNkdGxwYWV5YmYifQ.Cjl9InQhsLNvGhxJJs3ymg";
+
 // Process user input and generate a response
 export const processUserInput = (userInput: string): MessageType => {
   const userInputLower = userInput.toLowerCase();
