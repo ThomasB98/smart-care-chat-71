@@ -8,6 +8,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MAPBOX_TOKEN } from "@/utils/chatbotUtils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface NearbyDoctorsProps {
   onSelectDoctor: (doctor: Doctor) => void;
@@ -76,6 +77,7 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const { toast } = useToast();
   
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -93,9 +95,20 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
           setUserLocation(location);
           
           try {
-            // Fetch real doctors nearby using the Mapbox geocoding API
+            // Fetch real doctors nearby using the Mapbox geocoding API with expanded search radius
             const response = await fetchNearbyDoctors(location);
-            setDoctors(response);
+            
+            if (response.length === 0) {
+              // If no results, try with a wider radius
+              toast({
+                title: "Expanding search radius",
+                description: "Looking for healthcare providers in a wider area",
+              });
+              const expandedResponse = await fetchNearbyDoctorsWithRadius(location, 20); // 20km radius
+              setDoctors(expandedResponse);
+            } else {
+              setDoctors(response);
+            }
             setLoading(false);
           } catch (err) {
             console.error("Error fetching doctors:", err);
@@ -133,56 +146,154 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
     }
   }, []);
 
-  // Fetch nearby doctors using Mapbox Geocoding API
+  // Fetch nearby doctors using Mapbox Geocoding API with specific search
   const fetchNearbyDoctors = async (location: { lat: number; lng: number }): Promise<Doctor[]> => {
-    // Use Mapbox geocoding API to find real doctors/medical facilities nearby
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/doctor.json?proximity=${location.lng},${location.lat}&access_token=${MAPBOX_TOKEN}&types=poi&limit=10`;
+    // Use multiple specific search terms for better results
+    const searchTerms = ["doctor", "hospital", "clinic", "medical center", "healthcare"];
+    let allResults: Doctor[] = [];
     
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    // Transform the response into our Doctor interface
-    return data.features.map((feature: any, index: number) => {
-      const distance = calculateDistance(
-        location.lat, 
-        location.lng, 
-        feature.center[1], 
-        feature.center[0]
-      );
-      
-      // Generate some specialties based on the name or use a default
-      let specialty = "General Physician";
-      const name = feature.text.toLowerCase();
-      
-      if (name.includes("pediatric") || name.includes("children")) {
-        specialty = "Pediatrician";
-      } else if (name.includes("cardio") || name.includes("heart")) {
-        specialty = "Cardiologist";
-      } else if (name.includes("derma") || name.includes("skin")) {
-        specialty = "Dermatologist";
-      } else if (name.includes("ortho") || name.includes("bone")) {
-        specialty = "Orthopedist";
-      } else if (name.includes("neuro") || name.includes("brain")) {
-        specialty = "Neurologist";
+    // Search for each term and combine results
+    for (const term of searchTerms) {
+      try {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${term}.json?proximity=${location.lng},${location.lat}&access_token=${MAPBOX_TOKEN}&types=poi&limit=10`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.features && data.features.length > 0) {
+          // Transform the response into our Doctor interface
+          const doctorResults = data.features.map((feature: any, index: number) => {
+            const distance = calculateDistance(
+              location.lat, 
+              location.lng, 
+              feature.center[1], 
+              feature.center[0]
+            );
+            
+            // Only include results within reasonable distance (20km)
+            if (distance <= 20) {
+              return createDoctorFromFeature(feature, distance, location, index);
+            }
+            return null;
+          }).filter(Boolean); // Filter out null entries
+          
+          allResults = [...allResults, ...doctorResults];
+        }
+      } catch (err) {
+        console.error(`Error searching for ${term}:`, err);
       }
-      
-      // Generate a doctor name if the place doesn't have a proper name
-      const doctorName = feature.text.includes("Dr.") ? 
-        feature.text : 
-        `Dr. ${["Sarah", "Michael", "Emily", "David", "Jessica"][Math.floor(Math.random() * 5)]} ${["Johnson", "Smith", "Patel", "Garcia", "Wilson"][Math.floor(Math.random() * 5)]}`;
-      
-      return {
-        id: (index + 1).toString(),
-        name: doctorName,
-        specialty: specialty,
-        address: feature.place_name,
-        distance: `${distance.toFixed(1)} km`,
-        rating: 4 + Math.random() * 0.9, // Rating between 4.0 and 4.9
-        location: feature.center,
-        availableTimes: generateRandomTimes(),
-        phone: `+${Math.floor(Math.random() * 2) + 1} (${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`
-      };
+    }
+    
+    // Filter duplicate locations and sort by distance
+    const uniqueResults = filterDuplicateDoctors(allResults);
+    return uniqueResults.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+  };
+
+  // Fetch nearby doctors with a specific radius
+  const fetchNearbyDoctorsWithRadius = async (location: { lat: number; lng: number }, radiusKm: number): Promise<Doctor[]> => {
+    const searchTerms = ["doctor", "hospital", "clinic", "medical center", "healthcare"];
+    let allResults: Doctor[] = [];
+    
+    for (const term of searchTerms) {
+      try {
+        // Convert radius to approximate bounding box (rough estimation)
+        const latRadius = radiusKm / 111; // 1 degree lat is ~111km
+        const lonRadius = radiusKm / (111 * Math.cos(deg2rad(location.lat))); // Adjust for longitude
+        
+        const bbox = `${location.lng - lonRadius},${location.lat - latRadius},${location.lng + lonRadius},${location.lat + latRadius}`;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${term}.json?bbox=${bbox}&access_token=${MAPBOX_TOKEN}&types=poi&limit=15`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.features && data.features.length > 0) {
+          const doctorResults = data.features.map((feature: any, index: number) => {
+            const distance = calculateDistance(
+              location.lat, 
+              location.lng, 
+              feature.center[1], 
+              feature.center[0]
+            );
+            
+            // Include results within the specified radius
+            if (distance <= radiusKm) {
+              return createDoctorFromFeature(feature, distance, location, index);
+            }
+            return null;
+          }).filter(Boolean);
+          
+          allResults = [...allResults, ...doctorResults];
+        }
+      } catch (err) {
+        console.error(`Error searching for ${term} with radius:`, err);
+      }
+    }
+    
+    const uniqueResults = filterDuplicateDoctors(allResults);
+    return uniqueResults.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+  };
+
+  // Create a doctor object from a Mapbox feature
+  const createDoctorFromFeature = (feature: any, distance: number, location: { lat: number; lng: number }, index: number): Doctor => {
+    // Generate some specialties based on the name or use a default
+    let specialty = "General Physician";
+    const name = feature.text.toLowerCase();
+    
+    if (name.includes("pediatric") || name.includes("children")) {
+      specialty = "Pediatrician";
+    } else if (name.includes("cardio") || name.includes("heart")) {
+      specialty = "Cardiologist";
+    } else if (name.includes("derma") || name.includes("skin")) {
+      specialty = "Dermatologist";
+    } else if (name.includes("ortho") || name.includes("bone")) {
+      specialty = "Orthopedist";
+    } else if (name.includes("neuro") || name.includes("brain")) {
+      specialty = "Neurologist";
+    } else if (name.includes("hospital") || name.includes("medical center")) {
+      specialty = "Hospital";
+    } else if (name.includes("clinic")) {
+      specialty = "Medical Clinic";
+    }
+    
+    // Generate a doctor name if the place doesn't have a proper name
+    const doctorName = feature.text.includes("Dr.") ? 
+      feature.text : 
+      `Dr. ${["Sarah", "Michael", "Emily", "David", "Jessica"][Math.floor(Math.random() * 5)]} ${["Johnson", "Smith", "Patel", "Garcia", "Wilson"][Math.floor(Math.random() * 5)]}`;
+    
+    // Generate a unique ID
+    const uniqueId = `${feature.id || index}-${distance.toFixed(2)}`;
+    
+    return {
+      id: uniqueId,
+      name: doctorName,
+      specialty: specialty,
+      address: feature.place_name,
+      distance: `${distance.toFixed(1)} km`,
+      rating: 4 + Math.random() * 0.9, // Rating between 4.0 and 4.9
+      location: feature.center,
+      availableTimes: generateRandomTimes(),
+      phone: `+${Math.floor(Math.random() * 2) + 1} (${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`
+    };
+  };
+
+  // Filter out duplicate doctors based on similar locations
+  const filterDuplicateDoctors = (doctors: Doctor[]): Doctor[] => {
+    const uniqueDoctors: Doctor[] = [];
+    const locationMap = new Map();
+    
+    doctors.forEach(doctor => {
+      if (doctor.location) {
+        // Round coordinates to 5 decimal places (~1.1m precision) to identify nearby duplicates
+        const roundedLocation = doctor.location.map(coord => Math.round(coord * 100000) / 100000).join(',');
+        
+        if (!locationMap.has(roundedLocation)) {
+          locationMap.set(roundedLocation, doctor);
+          uniqueDoctors.push(doctor);
+        }
+      }
     });
+    
+    return uniqueDoctors;
   };
 
   // Function to generate doctors near a specific location (fallback)
@@ -375,6 +486,23 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
     }
   };
 
+  // Get directions to the doctor
+  const handleGetDirections = () => {
+    if (selectedDoctor?.location && userLocation) {
+      // Open directions in a new tab using Mapbox Directions API
+      const userCoords = `${userLocation.lng},${userLocation.lat}`;
+      const doctorCoords = `${selectedDoctor.location[0]},${selectedDoctor.location[1]}`;
+      const directionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${selectedDoctor.location[1]},${selectedDoctor.location[0]}&travelmode=driving`;
+      
+      window.open(directionsUrl, '_blank');
+      
+      toast({
+        title: "Opening directions",
+        description: "Directions to the healthcare provider will open in a new window",
+      });
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -389,7 +517,7 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
         
         {loading ? (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-pulse text-healthcare-primary">Loading nearby doctors...</div>
+            <div className="animate-pulse text-healthcare-primary">Finding healthcare providers near you...</div>
           </div>
         ) : error ? (
           <div className="text-center py-4">
@@ -398,45 +526,51 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
           </div>
         ) : (
           <div>
-            <h3 className="font-semibold mb-2">Doctors</h3>
-            <ScrollArea className="h-[200px] rounded-md">
+            <h3 className="font-semibold mb-2">Doctors & Medical Facilities</h3>
+            <ScrollArea className="h-[200px] rounded-md border p-2">
               <div className="space-y-4 pr-4">
-                {doctors.map((doctor) => (
-                  <div 
-                    key={doctor.id} 
-                    className="border rounded-md p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => handleDoctorClick(doctor)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium">{doctor.name}</h3>
-                        <p className="text-sm text-gray-600">{doctor.specialty}</p>
-                      </div>
-                      <span className="text-sm bg-healthcare-light text-healthcare-primary px-2 py-1 rounded-full">
-                        {doctor.distance}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-center text-sm text-gray-600">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      {doctor.address}
-                    </div>
-                    <div className="mt-1 flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <span key={i} className={`text-sm ${i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-300"}`}>
-                          ★
+                {doctors.length > 0 ? (
+                  doctors.map((doctor) => (
+                    <div 
+                      key={doctor.id} 
+                      className="border rounded-md p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => handleDoctorClick(doctor)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{doctor.name}</h3>
+                          <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                        </div>
+                        <span className="text-sm bg-healthcare-light text-healthcare-primary px-2 py-1 rounded-full">
+                          {doctor.distance}
                         </span>
-                      ))}
-                      <span className="ml-1 text-xs text-gray-600">({doctor.rating.toFixed(1)})</span>
+                      </div>
+                      <div className="mt-2 flex items-center text-sm text-gray-600">
+                        <MapPin className="h-3 w-3 mr-1" />
+                        {doctor.address}
+                      </div>
+                      <div className="mt-1 flex items-center">
+                        {[...Array(5)].map((_, i) => (
+                          <span key={i} className={`text-sm ${i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-300"}`}>
+                            ★
+                          </span>
+                        ))}
+                        <span className="ml-1 text-xs text-gray-600">({doctor.rating.toFixed(1)})</span>
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No healthcare providers found nearby. Try expanding your search area.
                   </div>
-                ))}
+                )}
               </div>
             </ScrollArea>
             
             {hospitals.length > 0 && (
               <div className="mt-6">
                 <h3 className="font-semibold mb-2">Nearby Hospitals</h3>
-                <ScrollArea className="h-[150px] rounded-md">
+                <ScrollArea className="h-[150px] rounded-md border p-2">
                   <div className="space-y-3 pr-4">
                     {hospitals.map((hospital, index) => (
                       <div key={index} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
@@ -469,13 +603,13 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span>{selectedDoctor.address}</span>
+                <span className="text-sm">{selectedDoctor.address}</span>
               </div>
               
               {selectedDoctor.phone && (
                 <div className="flex items-center space-x-2">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{selectedDoctor.phone}</span>
+                  <span className="text-sm">{selectedDoctor.phone}</span>
                 </div>
               )}
               
@@ -491,7 +625,16 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
                 </div>
               </div>
               
-              <div className="mt-6">
+              <Button 
+                variant="outline" 
+                className="w-full flex items-center justify-center"
+                onClick={handleGetDirections}
+              >
+                <MapPin className="mr-2 h-4 w-4" />
+                Get Directions
+              </Button>
+              
+              <div className="mt-4">
                 <h3 className="text-lg font-medium mb-2">Available Appointment Times</h3>
                 <div className="grid grid-cols-2 gap-2">
                   {selectedDoctor.availableTimes?.map((time) => (
