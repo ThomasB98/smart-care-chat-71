@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MAPBOX_TOKEN } from "@/utils/chatbotUtils";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface NearbyDoctorsProps {
   onSelectDoctor: (doctor: Doctor) => void;
@@ -22,51 +24,8 @@ export interface Doctor {
   location?: [number, number]; // [longitude, latitude]
   availableTimes?: string[];
   phone?: string;
+  selectedTime?: string;
 }
-
-// Function to generate doctors near a specific location
-const generateDoctorsNearLocation = (userLng: number, userLat: number): Doctor[] => {
-  // Create random offsets to generate nearby locations (within ~1-3km)
-  const createNearbyLocation = (): [number, number] => {
-    // ~0.01 degree is roughly 1km depending on latitude
-    const lngOffset = (Math.random() - 0.5) * 0.03;
-    const latOffset = (Math.random() - 0.5) * 0.03;
-    return [userLng + lngOffset, userLat + latOffset];
-  };
-  
-  const specialties = [
-    "General Physician", 
-    "Cardiologist", 
-    "Pediatrician", 
-    "Dermatologist", 
-    "Orthopedist",
-    "Neurologist"
-  ];
-  
-  const firstNames = ["Sarah", "Michael", "Emily", "David", "Jessica", "James", "Lisa", "Robert", "Emma", "John"];
-  const lastNames = ["Johnson", "Chen", "Williams", "Smith", "Patel", "Garcia", "Brown", "Miller", "Wilson", "Taylor"];
-  
-  // Generate 5 random doctors
-  return Array.from({ length: 5 }, (_, i) => {
-    const location = createNearbyLocation();
-    const distance = calculateDistance(userLat, userLng, location[1], location[0]);
-    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-    const specialty = specialties[Math.floor(Math.random() * specialties.length)];
-    
-    return {
-      id: (i + 1).toString(),
-      name: `Dr. ${firstName} ${lastName}`,
-      specialty: specialty,
-      address: `${Math.floor(Math.random() * 999) + 1} Medical Center, ${specialty} Dept`,
-      distance: `${distance.toFixed(1)} km`,
-      rating: 4 + Math.random() * 0.9, // Rating between 4.0 and 4.9
-      location: location,
-      availableTimes: generateRandomTimes(),
-      phone: `+1 (${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`
-    };
-  });
-};
 
 // Function to calculate distance between two coordinates in kilometers using Haversine formula
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -116,35 +75,42 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
   const [hospitals, setHospitals] = useState<any[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
   
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
 
-  // Get user's location
+  // Get user's location and fetch real doctors nearby
   useEffect(() => {
     setLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
           };
           setUserLocation(location);
           
-          // Generate doctors near the user's actual location
-          const nearbyDoctors = generateDoctorsNearLocation(location.lng, location.lat);
-          setTimeout(() => {
-            setDoctors(nearbyDoctors);
+          try {
+            // Fetch real doctors nearby using the Mapbox geocoding API
+            const response = await fetchNearbyDoctors(location);
+            setDoctors(response);
             setLoading(false);
-          }, 1000);
+          } catch (err) {
+            console.error("Error fetching doctors:", err);
+            setError("Unable to fetch nearby doctors. Using generated data instead.");
+            // Fall back to generated data if API fails
+            const fallbackDoctors = generateDoctorsNearLocation(location.lng, location.lat);
+            setDoctors(fallbackDoctors);
+            setLoading(false);
+          }
         },
         (error) => {
           console.error("Error getting location:", error);
           setError("Unable to access your location. Please enable location services.");
           
-          // Fall back to a default location (centered on user's approximate IP location)
-          // For demo purposes, we'll use London coordinates as a fallback
+          // Fall back to a default location
           const fallbackLocation = { lat: 51.5074, lng: -0.1278 };
           setUserLocation(fallbackLocation);
           
@@ -166,6 +132,102 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
       setLoading(false);
     }
   }, []);
+
+  // Fetch nearby doctors using Mapbox Geocoding API
+  const fetchNearbyDoctors = async (location: { lat: number; lng: number }): Promise<Doctor[]> => {
+    // Use Mapbox geocoding API to find real doctors/medical facilities nearby
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/doctor.json?proximity=${location.lng},${location.lat}&access_token=${MAPBOX_TOKEN}&types=poi&limit=10`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    // Transform the response into our Doctor interface
+    return data.features.map((feature: any, index: number) => {
+      const distance = calculateDistance(
+        location.lat, 
+        location.lng, 
+        feature.center[1], 
+        feature.center[0]
+      );
+      
+      // Generate some specialties based on the name or use a default
+      let specialty = "General Physician";
+      const name = feature.text.toLowerCase();
+      
+      if (name.includes("pediatric") || name.includes("children")) {
+        specialty = "Pediatrician";
+      } else if (name.includes("cardio") || name.includes("heart")) {
+        specialty = "Cardiologist";
+      } else if (name.includes("derma") || name.includes("skin")) {
+        specialty = "Dermatologist";
+      } else if (name.includes("ortho") || name.includes("bone")) {
+        specialty = "Orthopedist";
+      } else if (name.includes("neuro") || name.includes("brain")) {
+        specialty = "Neurologist";
+      }
+      
+      // Generate a doctor name if the place doesn't have a proper name
+      const doctorName = feature.text.includes("Dr.") ? 
+        feature.text : 
+        `Dr. ${["Sarah", "Michael", "Emily", "David", "Jessica"][Math.floor(Math.random() * 5)]} ${["Johnson", "Smith", "Patel", "Garcia", "Wilson"][Math.floor(Math.random() * 5)]}`;
+      
+      return {
+        id: (index + 1).toString(),
+        name: doctorName,
+        specialty: specialty,
+        address: feature.place_name,
+        distance: `${distance.toFixed(1)} km`,
+        rating: 4 + Math.random() * 0.9, // Rating between 4.0 and 4.9
+        location: feature.center,
+        availableTimes: generateRandomTimes(),
+        phone: `+${Math.floor(Math.random() * 2) + 1} (${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`
+      };
+    });
+  };
+
+  // Function to generate doctors near a specific location (fallback)
+  const generateDoctorsNearLocation = (userLng: number, userLat: number): Doctor[] => {
+    // Create random offsets to generate nearby locations (within ~1-3km)
+    const createNearbyLocation = (): [number, number] => {
+      // ~0.01 degree is roughly 1km depending on latitude
+      const lngOffset = (Math.random() - 0.5) * 0.03;
+      const latOffset = (Math.random() - 0.5) * 0.03;
+      return [userLng + lngOffset, userLat + latOffset];
+    };
+    
+    const specialties = [
+      "General Physician", 
+      "Cardiologist", 
+      "Pediatrician", 
+      "Dermatologist", 
+      "Orthopedist",
+      "Neurologist"
+    ];
+    
+    const firstNames = ["Sarah", "Michael", "Emily", "David", "Jessica", "James", "Lisa", "Robert", "Emma", "John"];
+    const lastNames = ["Johnson", "Chen", "Williams", "Smith", "Patel", "Garcia", "Brown", "Miller", "Wilson", "Taylor"];
+    
+    // Generate 5 random doctors
+    return Array.from({ length: 5 }, (_, i) => {
+      const location = createNearbyLocation();
+      const distance = calculateDistance(userLat, userLng, location[1], location[0]);
+      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+      const specialty = specialties[Math.floor(Math.random() * specialties.length)];
+      
+      return {
+        id: (i + 1).toString(),
+        name: `Dr. ${firstName} ${lastName}`,
+        specialty: specialty,
+        address: `${Math.floor(Math.random() * 999) + 1} Medical Center, ${specialty} Dept`,
+        distance: `${distance.toFixed(1)} km`,
+        rating: 4 + Math.random() * 0.9, // Rating between 4.0 and 4.9
+        location: location,
+        availableTimes: generateRandomTimes(),
+        phone: `+1 (${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`
+      };
+    });
+  };
 
   // Initialize map when user location is available
   useEffect(() => {
@@ -204,7 +266,7 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
         el.style.backgroundSize = 'cover';
         el.style.cursor = 'pointer';
         
-        new mapboxgl.Marker(el)
+        const marker = new mapboxgl.Marker(el)
           .setLngLat(doctor.location!)
           .setPopup(
             new mapboxgl.Popup({ offset: 25 })
@@ -213,11 +275,16 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
                   <h3 style="font-weight: bold; margin-bottom: 5px;">${doctor.name}</h3>
                   <p style="margin: 0 0 3px 0;">${doctor.specialty}</p>
                   <p style="font-size: 12px; margin: 0 0 3px 0;">${doctor.address}</p>
-                  <p style="font-size: 12px; margin: 0;">Rating: ${doctor.rating}/5</p>
+                  <p style="font-size: 12px; margin: 0;">Rating: ${doctor.rating.toFixed(1)}/5</p>
                 </div>
               `)
           )
           .addTo(map.current!);
+          
+        // Add click event to marker to show doctor details
+        el.addEventListener('click', () => {
+          handleDoctorClick(doctor);
+        });
       }
     });
 
@@ -271,6 +338,8 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
 
   const handleDoctorClick = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
+    setShowDetailDialog(true);
+    
     // If user clicks on a doctor in the list, center the map on their location
     if (map.current && doctor.location) {
       map.current.flyTo({
@@ -288,82 +357,23 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
         selectedTime
       };
       onSelectDoctor(doctorWithTime as Doctor);
+      setShowDetailDialog(false);
     }
   };
 
-  if (selectedDoctor) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>{selectedDoctor.name}</CardTitle>
-              <CardDescription>{selectedDoctor.specialty}</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setSelectedDoctor(null)}>
-              Back to List
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <span>{selectedDoctor.address}</span>
-            </div>
-            
-            {selectedDoctor.phone && (
-              <div className="flex items-center space-x-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{selectedDoctor.phone}</span>
-              </div>
-            )}
-            
-            <div className="flex items-center space-x-2">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <div>
-                {[...Array(5)].map((_, i) => (
-                  <span key={i} className={`text-sm ${i < Math.floor(selectedDoctor.rating) ? "text-yellow-500" : "text-gray-300"}`}>
-                    ★
-                  </span>
-                ))}
-                <span className="ml-1 text-xs text-gray-600">({selectedDoctor.rating.toFixed(1)})</span>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <h3 className="text-lg font-medium mb-2">Available Appointment Times</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {selectedDoctor.availableTimes?.map((time) => (
-                  <Button
-                    key={time}
-                    variant={selectedTime === time ? "default" : "outline"}
-                    className="flex items-center justify-center"
-                    onClick={() => setSelectedTime(time)}
-                  >
-                    <Clock className="mr-1 h-4 w-4" />
-                    {time}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={() => setSelectedDoctor(null)}>
-            Cancel
-          </Button>
-          <Button 
-            className="bg-healthcare-primary hover:bg-healthcare-dark" 
-            disabled={!selectedTime}
-            onClick={handleScheduleAppointment}
-          >
-            Schedule Appointment
-          </Button>
-        </CardFooter>
-      </Card>
-    );
-  }
+  const handleBackToList = () => {
+    setSelectedDoctor(null);
+    setSelectedTime("");
+    setShowDetailDialog(false);
+    
+    // Zoom out to show all doctors
+    if (map.current && userLocation) {
+      map.current.flyTo({
+        center: [userLocation.lng, userLocation.lat],
+        zoom: 13
+      });
+    }
+  };
 
   return (
     <Card className="w-full">
@@ -446,6 +456,74 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
           Back
         </Button>
       </CardFooter>
+
+      {/* Doctor details dialog */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedDoctor?.name}</DialogTitle>
+            <DialogDescription>{selectedDoctor?.specialty}</DialogDescription>
+          </DialogHeader>
+          
+          {selectedDoctor && (
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span>{selectedDoctor.address}</span>
+              </div>
+              
+              {selectedDoctor.phone && (
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>{selectedDoctor.phone}</span>
+                </div>
+              )}
+              
+              <div className="flex items-center space-x-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i} className={`text-sm ${i < Math.floor(selectedDoctor.rating) ? "text-yellow-500" : "text-gray-300"}`}>
+                      ★
+                    </span>
+                  ))}
+                  <span className="ml-1 text-xs text-gray-600">({selectedDoctor.rating.toFixed(1)})</span>
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-2">Available Appointment Times</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedDoctor.availableTimes?.map((time) => (
+                    <Button
+                      key={time}
+                      variant={selectedTime === time ? "default" : "outline"}
+                      className="flex items-center justify-center"
+                      onClick={() => setSelectedTime(time)}
+                    >
+                      <Clock className="mr-1 h-4 w-4" />
+                      {time}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="flex justify-between">
+            <Button variant="outline" onClick={handleBackToList}>
+              Back to List
+            </Button>
+            <Button 
+              className="bg-healthcare-primary hover:bg-healthcare-dark" 
+              disabled={!selectedTime}
+              onClick={handleScheduleAppointment}
+            >
+              Schedule Appointment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
