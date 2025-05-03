@@ -24,42 +24,89 @@ export interface Doctor {
   phone?: string;
 }
 
-// Mock data for nearby doctors
-const mockDoctors: Doctor[] = [
-  {
-    id: "1",
-    name: "Dr. Sarah Johnson",
-    specialty: "General Physician",
-    address: "123 Medical Center, Downtown",
-    distance: "0.7 miles",
-    rating: 4.8,
-    location: [-73.98, 40.73],
-    availableTimes: ["9:00 AM", "11:30 AM", "2:00 PM", "4:30 PM"],
-    phone: "+1 (555) 123-4567"
-  },
-  {
-    id: "2",
-    name: "Dr. Michael Chen",
-    specialty: "Cardiologist",
-    address: "456 Health Avenue, Westside",
-    distance: "1.2 miles",
-    rating: 4.9,
-    location: [-73.97, 40.74],
-    availableTimes: ["10:00 AM", "1:00 PM", "3:30 PM"],
-    phone: "+1 (555) 987-6543"
-  },
-  {
-    id: "3",
-    name: "Dr. Emily Williams",
-    specialty: "Pediatrician",
-    address: "789 Care Boulevard, Northside",
-    distance: "1.5 miles",
-    rating: 4.7,
-    location: [-73.99, 40.72],
-    availableTimes: ["9:30 AM", "12:00 PM", "2:30 PM", "5:00 PM"],
-    phone: "+1 (555) 456-7890"
-  },
-];
+// Function to generate doctors near a specific location
+const generateDoctorsNearLocation = (userLng: number, userLat: number): Doctor[] => {
+  // Create random offsets to generate nearby locations (within ~1-3km)
+  const createNearbyLocation = (): [number, number] => {
+    // ~0.01 degree is roughly 1km depending on latitude
+    const lngOffset = (Math.random() - 0.5) * 0.03;
+    const latOffset = (Math.random() - 0.5) * 0.03;
+    return [userLng + lngOffset, userLat + latOffset];
+  };
+  
+  const specialties = [
+    "General Physician", 
+    "Cardiologist", 
+    "Pediatrician", 
+    "Dermatologist", 
+    "Orthopedist",
+    "Neurologist"
+  ];
+  
+  const firstNames = ["Sarah", "Michael", "Emily", "David", "Jessica", "James", "Lisa", "Robert", "Emma", "John"];
+  const lastNames = ["Johnson", "Chen", "Williams", "Smith", "Patel", "Garcia", "Brown", "Miller", "Wilson", "Taylor"];
+  
+  // Generate 5 random doctors
+  return Array.from({ length: 5 }, (_, i) => {
+    const location = createNearbyLocation();
+    const distance = calculateDistance(userLat, userLng, location[1], location[0]);
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const specialty = specialties[Math.floor(Math.random() * specialties.length)];
+    
+    return {
+      id: (i + 1).toString(),
+      name: `Dr. ${firstName} ${lastName}`,
+      specialty: specialty,
+      address: `${Math.floor(Math.random() * 999) + 1} Medical Center, ${specialty} Dept`,
+      distance: `${distance.toFixed(1)} km`,
+      rating: 4 + Math.random() * 0.9, // Rating between 4.0 and 4.9
+      location: location,
+      availableTimes: generateRandomTimes(),
+      phone: `+1 (${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`
+    };
+  });
+};
+
+// Function to calculate distance between two coordinates in kilometers using Haversine formula
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2); 
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  const distance = R * c; // Distance in km
+  return distance;
+};
+
+const deg2rad = (deg: number): number => {
+  return deg * (Math.PI/180);
+};
+
+// Function to generate random available appointment times
+const generateRandomTimes = (): string[] => {
+  const times = ["9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", 
+                "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM"];
+  
+  // Randomly select 3-5 times
+  const numTimes = Math.floor(Math.random() * 3) + 3;
+  const selectedTimes: string[] = [];
+  
+  while (selectedTimes.length < numTimes) {
+    const randomTime = times[Math.floor(Math.random() * times.length)];
+    if (!selectedTimes.includes(randomTime)) {
+      selectedTimes.push(randomTime);
+    }
+  }
+  
+  // Sort by time
+  return selectedTimes.sort((a, b) => {
+    return new Date(`01/01/2023 ${a}`) < new Date(`01/01/2023 ${b}`) ? -1 : 1;
+  });
+};
 
 const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -85,23 +132,37 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
           };
           setUserLocation(location);
           
-          // In a real implementation, we would use Mapbox API to find nearby doctors
-          // For now, we'll use mock data
+          // Generate doctors near the user's actual location
+          const nearbyDoctors = generateDoctorsNearLocation(location.lng, location.lat);
           setTimeout(() => {
-            setDoctors(mockDoctors);
+            setDoctors(nearbyDoctors);
             setLoading(false);
           }, 1000);
         },
         (error) => {
           console.error("Error getting location:", error);
           setError("Unable to access your location. Please enable location services.");
-          setDoctors(mockDoctors); // Fallback to mock data
+          
+          // Fall back to a default location (centered on user's approximate IP location)
+          // For demo purposes, we'll use London coordinates as a fallback
+          const fallbackLocation = { lat: 51.5074, lng: -0.1278 };
+          setUserLocation(fallbackLocation);
+          
+          // Generate doctors near the fallback location
+          const fallbackDoctors = generateDoctorsNearLocation(fallbackLocation.lng, fallbackLocation.lat);
+          setDoctors(fallbackDoctors);
           setLoading(false);
         }
       );
     } else {
       setError("Geolocation is not supported by your browser.");
-      setDoctors(mockDoctors); // Fallback to mock data
+      // Fall back to default location
+      const fallbackLocation = { lat: 51.5074, lng: -0.1278 };
+      setUserLocation(fallbackLocation);
+      
+      // Generate doctors near the fallback location
+      const fallbackDoctors = generateDoctorsNearLocation(fallbackLocation.lng, fallbackLocation.lat);
+      setDoctors(fallbackDoctors);
       setLoading(false);
     }
   }, []);
@@ -266,7 +327,7 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
                     ★
                   </span>
                 ))}
-                <span className="ml-1 text-xs text-gray-600">({selectedDoctor.rating})</span>
+                <span className="ml-1 text-xs text-gray-600">({selectedDoctor.rating.toFixed(1)})</span>
               </div>
             </div>
             
@@ -355,7 +416,7 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
                           ★
                         </span>
                       ))}
-                      <span className="ml-1 text-xs text-gray-600">({doctor.rating})</span>
+                      <span className="ml-1 text-xs text-gray-600">({doctor.rating.toFixed(1)})</span>
                     </div>
                   </div>
                 ))}
