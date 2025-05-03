@@ -1,8 +1,8 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Hospital, MapPin, User, Clock, Phone } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MAPBOX_TOKEN } from "@/utils/chatbotUtils";
@@ -328,49 +328,53 @@ const NearbyDoctors = ({ onSelectDoctor, onCancel }: NearbyDoctorsProps) => {
         ) : (
           <div>
             <h3 className="font-semibold mb-2">Doctors</h3>
-            <div className="space-y-4">
-              {doctors.map((doctor) => (
-                <div 
-                  key={doctor.id} 
-                  className="border rounded-md p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => handleDoctorClick(doctor)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium">{doctor.name}</h3>
-                      <p className="text-sm text-gray-600">{doctor.specialty}</p>
-                    </div>
-                    <span className="text-sm bg-healthcare-light text-healthcare-primary px-2 py-1 rounded-full">
-                      {doctor.distance}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-center text-sm text-gray-600">
-                    <MapPin className="h-3 w-3 mr-1" />
-                    {doctor.address}
-                  </div>
-                  <div className="mt-1 flex items-center">
-                    {[...Array(5)].map((_, i) => (
-                      <span key={i} className={`text-sm ${i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-300"}`}>
-                        ★
+            <ScrollArea className="h-[200px] rounded-md">
+              <div className="space-y-4 pr-4">
+                {doctors.map((doctor) => (
+                  <div 
+                    key={doctor.id} 
+                    className="border rounded-md p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => handleDoctorClick(doctor)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium">{doctor.name}</h3>
+                        <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                      </div>
+                      <span className="text-sm bg-healthcare-light text-healthcare-primary px-2 py-1 rounded-full">
+                        {doctor.distance}
                       </span>
-                    ))}
-                    <span className="ml-1 text-xs text-gray-600">({doctor.rating})</span>
+                    </div>
+                    <div className="mt-2 flex items-center text-sm text-gray-600">
+                      <MapPin className="h-3 w-3 mr-1" />
+                      {doctor.address}
+                    </div>
+                    <div className="mt-1 flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <span key={i} className={`text-sm ${i < Math.floor(doctor.rating) ? "text-yellow-500" : "text-gray-300"}`}>
+                          ★
+                        </span>
+                      ))}
+                      <span className="ml-1 text-xs text-gray-600">({doctor.rating})</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </ScrollArea>
             
             {hospitals.length > 0 && (
               <div className="mt-6">
                 <h3 className="font-semibold mb-2">Nearby Hospitals</h3>
-                <div className="space-y-3">
-                  {hospitals.map((hospital, index) => (
-                    <div key={index} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
-                      <h4 className="font-medium">{hospital.text}</h4>
-                      <p className="text-sm text-gray-600">{hospital.place_name}</p>
-                    </div>
-                  ))}
-                </div>
+                <ScrollArea className="h-[150px] rounded-md">
+                  <div className="space-y-3 pr-4">
+                    {hospitals.map((hospital, index) => (
+                      <div key={index} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
+                        <h4 className="font-medium">{hospital.text}</h4>
+                        <p className="text-sm text-gray-600">{hospital.place_name}</p>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             )}
           </div>
