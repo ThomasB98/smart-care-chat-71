@@ -13,11 +13,22 @@ interface ChatInputProps {
 const ChatInput = ({ onSendMessage, isTyping = false }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("");
 
+  console.log("ChatInput rendered, isTyping:", isTyping);
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    console.log("Form submitted with value:", inputValue);
+    
     if (inputValue.trim()) {
-      onSendMessage(inputValue);
+      onSendMessage(inputValue.trim());
       setInputValue("");
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e as any);
     }
   };
 
@@ -27,10 +38,15 @@ const ChatInput = ({ onSendMessage, isTyping = false }: ChatInputProps) => {
         <Input
           type="text"
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Type your message..."
+          onChange={(e) => {
+            console.log("Input changed:", e.target.value);
+            setInputValue(e.target.value);
+          }}
+          onKeyPress={handleKeyPress}
+          placeholder="Type your message here..."
           className="flex-1"
           disabled={isTyping}
+          autoComplete="off"
         />
         <Button 
           type="submit" 
@@ -38,7 +54,7 @@ const ChatInput = ({ onSendMessage, isTyping = false }: ChatInputProps) => {
           disabled={!inputValue.trim() || isTyping}
           className={cn(
             "bg-healthcare-primary hover:bg-healthcare-dark",
-            !inputValue.trim() && "opacity-50 cursor-not-allowed"
+            (!inputValue.trim() || isTyping) && "opacity-50 cursor-not-allowed"
           )}
         >
           <SendIcon className="h-4 w-4" />

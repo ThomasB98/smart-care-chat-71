@@ -23,6 +23,8 @@ export const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvbWFzYjk4IiwiYSI6ImNtYTc3Z2N4dDB2ZzAy
 export const processUserInput = (userInput: string): MessageType => {
   const userInputLower = userInput.toLowerCase();
   
+  console.log("Processing user input:", userInput);
+  
   // Simple keyword matching for different functionalities
   if (userInputLower.includes('symptom') || userInputLower.includes('not feeling well') || userInputLower.includes('sick')) {
     return {
@@ -81,7 +83,7 @@ export const processUserInput = (userInput: string): MessageType => {
       type: 'nearby-doctors'
     };
   }
-  else if (userInputLower.includes('hello') || userInputLower.includes('hi')) {
+  else if (userInputLower.includes('hello') || userInputLower.includes('hi') || userInputLower.includes('hey')) {
     return {
       id: generateId(),
       content: "Hello! I'm your Smart Healthcare Assistant. How can I help you today? You can ask about symptoms, schedule an appointment, set medication reminders, get health tips, or find nearby healthcare facilities.",
@@ -91,9 +93,10 @@ export const processUserInput = (userInput: string): MessageType => {
     };
   }
   else {
+    // Default response for any other input
     return {
       id: generateId(),
-      content: "I'm here to help with your health concerns. You can ask me about symptoms, schedule an appointment, set medication reminders, get health tips and information, or find nearby healthcare facilities.",
+      content: "I understand you'd like to chat! I'm here to help with your health concerns. You can ask me about symptoms, schedule an appointment, set medication reminders, get health tips and information, or find nearby healthcare facilities. What would you like to know?",
       sender: 'bot',
       timestamp: new Date(),
       type: 'options',
