@@ -609,72 +609,64 @@ const ChatInterface = () => {
           </div>
         </CardHeader>
         
-        <CardContent className="flex-1 overflow-hidden p-0">
-          <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto p-4 chat-container">
-              {messages.map(message => (
-                <MessageBubble 
-                  key={message.id} 
-                  message={message} 
-                  onOptionClick={handleOptionClick}
-                />
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-            
+        <div className="flex flex-col flex-1 overflow-y-auto">
+          <CardContent className="flex-1 p-4 space-y-4">
+            {messages.map(message => (
+              <MessageBubble 
+                key={message.id} 
+                message={message} 
+                onOptionClick={handleOptionClick}
+              />
+            ))}
+            <div ref={messagesEndRef} />
+          </CardContent>
+          
+          <div className="px-4 pb-4">
             {activeComponent === 'symptom-checker' && (
-              <div className="p-4 border-t">
-                <SymptomChecker
-                  onComplete={handleSymptomCheckerComplete}
-                  onCancel={() => setActiveComponent(null)}
-                />
-              </div>
+              <SymptomChecker
+                onComplete={handleSymptomCheckerComplete}
+                onCancel={() => setActiveComponent(null)}
+              />
             )}
             
             {activeComponent === 'appointment' && (
-              <div className="p-4 border-t">
-                <AppointmentScheduler
-                  onComplete={handleAppointmentComplete}
-                  onCancel={() => setActiveComponent(null)}
-                />
-              </div>
+              <AppointmentScheduler
+                onComplete={handleAppointmentComplete}
+                onCancel={() => setActiveComponent(null)}
+              />
             )}
             
             {activeComponent === 'reminder' && (
-              <div className="p-4 border-t">
-                <MedicationReminder
-                  onComplete={handleReminderComplete}
-                  onCancel={() => setActiveComponent(null)}
-                />
-              </div>
+              <MedicationReminder
+                onComplete={handleReminderComplete}
+                onCancel={() => setActiveComponent(null)}
+              />
             )}
             
             {activeComponent === 'health-tips' && (
-              <div className="p-4 border-t">
-                <HealthTips
-                  onSelect={handleHealthTipSelect}
-                  onClose={() => setActiveComponent(null)}
-                />
-              </div>
+              <HealthTips
+                onSelect={handleHealthTipSelect}
+                onClose={() => setActiveComponent(null)}
+              />
             )}
 
             {activeComponent === 'nearby-doctors' && (
-              <div className="p-4 border-t">
-                <NearbyDoctors
-                  onSelectDoctor={handleDoctorSelect}
-                  onCancel={() => setActiveComponent(null)}
-                />
-              </div>
-            )}
-            
-            {!activeComponent && (
-              <ChatInput 
-                onSendMessage={handleSendMessage} 
-                isTyping={isTyping} 
+              <NearbyDoctors
+                onSelectDoctor={handleDoctorSelect}
+                onCancel={() => setActiveComponent(null)}
               />
             )}
           </div>
-        </CardContent>
+        </div>
+            
+        {!activeComponent && (
+          <div className="p-4 border-t">
+            <ChatInput 
+              onSendMessage={handleSendMessage} 
+              isTyping={isTyping} 
+            />
+          </div>
+        )}
       </Card>
     </div>
   );

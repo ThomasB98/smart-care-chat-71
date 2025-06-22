@@ -1,57 +1,79 @@
-
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { User, Camera } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProfileHeaderProps {
   userData: {
-    email: string;
-    name: string;
+    name?: string;
+    email?: string;
     profileImage?: string;
   };
   onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 const ProfileHeader = ({ userData, onImageChange }: ProfileHeaderProps) => {
-  const [isHovering, setIsHovering] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
   
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && userData.email) {
+      const file = e.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userData.email}-${Date.now()}.${fileExt}`;
+      const filePath = `profile-images/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('user-data')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (error) {
+        console.error('Error uploading image:', error);
+      } else {
+        console.log('Image uploaded successfully');
+        onImageChange(e);
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center mb-6">
-      <div 
-        className="relative"
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-      >
-        <Avatar className="h-24 w-24 border-2 border-healthcare-primary">
-          {userData.profileImage ? (
-            <AvatarImage src={userData.profileImage} alt={userData.name} />
-          ) : (
-            <AvatarFallback className="bg-healthcare-light text-healthcare-primary text-xl">
-              <User size={36} />
-            </AvatarFallback>
-          )}
-        </Avatar>
-        
-        {isHovering && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center cursor-pointer">
-            <label htmlFor="profile-image" className="cursor-pointer p-2">
-              <Camera className="text-white" />
-              <input
-                id="profile-image"
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={onImageChange}
-              />
-            </label>
+    <Card className="w-full">
+      <CardContent className="pt-6">
+        <div className="flex flex-col items-center text-center">
+          <div className="relative mb-4">
+            <Avatar className="h-24 w-24 border-4 border-white shadow-md">
+              <AvatarImage src={userData.profileImage || "https://github.com/shadcn.png"} alt={userData.name} />
+              <AvatarFallback>{userData.name?.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <Button
+              size="icon"
+              variant="outline"
+              className="absolute bottom-0 right-0 rounded-full bg-white"
+              onClick={handleImageClick}
+            >
+              <Camera className="h-4 w-4" />
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleUploadImage}
+              accept="image/*"
+            />
           </div>
-        )}
-      </div>
-      
-      <h2 className="text-2xl font-bold mt-4">{userData.name}</h2>
-      <p className="text-gray-500">{userData.email}</p>
-    </div>
+          <h2 className="text-2xl font-bold">{userData.name || "User Name"}</h2>
+          <p className="text-sm text-muted-foreground">{userData.email || "user@example.com"}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

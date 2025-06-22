@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import ProfileHeader from "./ProfileHeader";
@@ -161,30 +160,34 @@ const ProfilePage = ({ userData }: ProfilePageProps) => {
   }
   
   return (
-    <div className="w-full px-4 py-6 md:py-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-6">
+    <div className="w-full min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
           <Button 
             variant="ghost" 
             onClick={() => navigate('/')}
-            className="flex items-center text-healthcare-primary hover:text-healthcare-dark mb-4"
+            className="flex items-center text-healthcare-primary hover:text-healthcare-dark mb-4 -ml-4"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Chat
           </Button>
-          <h1 className="text-2xl md:text-3xl font-bold">My Health Profile</h1>
+          <h1 className="text-3xl font-bold text-gray-800">My Health Profile</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage your health information and preferences.</p>
         </div>
         
-        <ProfileHeader 
-          userData={{ ...userData, profileImage }}
-          onImageChange={handleProfileImageChange}
-        />
-        
-        <div className="mt-8">
-          <ProfileTabs 
-            profileData={profileData}
-            updateProfileData={updateProfileData}
-          />
+        <div className="flex flex-col lg:flex-row gap-8">
+          <div className="lg:w-1/3">
+            <ProfileHeader 
+              userData={{ ...userData, profileImage }}
+              onImageChange={handleProfileImageChange}
+            />
+          </div>
+          <div className="lg:w-2/3">
+            <ProfileTabs 
+              profileData={profileData}
+              updateProfileData={updateProfileData}
+            />
+          </div>
         </div>
       </div>
     </div>

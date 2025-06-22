@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BasicInfoTab from "./tabs/BasicInfoTab";
@@ -21,8 +20,8 @@ const ProfileTabs = ({ profileData, updateProfileData }: ProfileTabsProps) => {
   
   return (
     <Tabs defaultValue="basic-info" value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <ScrollArea className="mb-6 pb-2 w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-1">
+      <div className="w-full overflow-x-auto">
+        <TabsList className="flex flex-wrap sm:flex-nowrap justify-start gap-1 sm:grid sm:grid-cols-4 md:grid-cols-7">
           <TabsTrigger value="basic-info">Basic Info</TabsTrigger>
           <TabsTrigger value="medical-info">Medical</TabsTrigger>
           <TabsTrigger value="health-metrics">Metrics</TabsTrigger>
@@ -31,7 +30,7 @@ const ProfileTabs = ({ profileData, updateProfileData }: ProfileTabsProps) => {
           <TabsTrigger value="ai-data">AI Data</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
         </TabsList>
-      </ScrollArea>
+      </div>
       
       <div className="mt-6">
         <TabsContent value="basic-info">
