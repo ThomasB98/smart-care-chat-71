@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -312,7 +311,7 @@ const ChatInterface = () => {
     navigate('/profile', { state: { userData } });
   };
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     // Add user message
     const userMessage: MessageType = {
       id: generateId(),
@@ -323,25 +322,39 @@ const ChatInterface = () => {
     };
     addMessage(userMessage);
     
-    // Process user input and generate bot response
-    simulateTyping(() => {
-      const botResponse = processUserInput(content);
-      addMessage(botResponse);
-      
-      // Activate component based on response type
-      if (botResponse.type === 'symptom-checker') {
-        setActiveComponent('symptom-checker');
-      } else if (botResponse.type === 'appointment') {
-        setActiveComponent('appointment');
-      } else if (botResponse.type === 'reminder') {
-        setActiveComponent('reminder');
-      } else if (botResponse.type === 'health-tip' || botResponse.type === 'options') {
-        // For these types, we just show the message with options
-      }
-    });
+    // Process user input and generate bot response with AI
+    setIsTyping(true);
+    try {
+      const botResponse = await processUserInput(content);
+      setTimeout(() => {
+        setIsTyping(false);
+        addMessage(botResponse);
+        
+        // Activate component based on response type
+        if (botResponse.type === 'symptom-checker') {
+          setActiveComponent('symptom-checker');
+        } else if (botResponse.type === 'appointment') {
+          setActiveComponent('appointment');
+        } else if (botResponse.type === 'reminder') {
+          setActiveComponent('reminder');
+        } else if (botResponse.type === 'health-tip' || botResponse.type === 'options') {
+          // For these types, we just show the message with options
+        }
+      }, Math.random() * 1000 + 500);
+    } catch (error) {
+      console.error('Error processing message:', error);
+      setIsTyping(false);
+      addMessage({
+        id: generateId(),
+        content: "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
+        sender: 'bot',
+        timestamp: new Date(),
+        type: 'text'
+      });
+    }
   };
 
-  const handleOptionClick = (option: string) => {
+  const handleOptionClick = async (option: string) => {
     // Add user message for the selected option
     const userMessage: MessageType = {
       id: generateId(),
@@ -353,60 +366,44 @@ const ChatInterface = () => {
     addMessage(userMessage);
     
     // Handle different option types
-    simulateTyping(() => {
+    setIsTyping(true);
+    try {
       if (option === "Check symptoms") {
+        setIsTyping(false);
         setActiveComponent('symptom-checker');
         return;
       } else if (option === "Schedule appointment") {
+        setIsTyping(false);
         setActiveComponent('appointment');
         return;
       } else if (option === "Set medication reminder") {
+        setIsTyping(false);
         setActiveComponent('reminder');
         return;
       } else if (option === "Get health tips") {
+        setIsTyping(false);
         setActiveComponent('health-tips');
         return;
       } else if (option === "Find nearby doctors") {
+        setIsTyping(false);
         setActiveComponent('nearby-doctors');
         return;
-      } else if (option === "View chat history") {
-        // Show chat history
-        if (profileData && profileData.aiPersonalization.chatHistory.length > 0) {
-          const chatHistory = profileData.aiPersonalization.chatHistory;
-          const historyMessage: MessageType = {
+      } else if (option === "Ask health questions") {
+        setTimeout(() => {
+          setIsTyping(false);
+          const botResponse: MessageType = {
             id: generateId(),
-            content: "Here are your recent conversations:",
+            content: "Here are some common health questions. Select one to learn more:",
             sender: 'bot',
             timestamp: new Date(),
             type: 'options',
-            options: chatHistory.map(history => `${history.topic} (${new Date(history.date).toLocaleDateString()})`)
+            options: ["How to prevent cold?", "What is high blood pressure?", "Benefits of exercise", "Healthy diet tips", "Sleep hygiene"]
           };
-          addMessage(historyMessage);
-        } else {
-          const noHistoryMessage: MessageType = {
-            id: generateId(),
-            content: "You don't have any chat history yet. Start a conversation to build your history.",
-            sender: 'bot',
-            timestamp: new Date(),
-            type: 'text'
-          };
-          addMessage(noHistoryMessage);
-        }
-        return;
-      } else if (option === "Ask health questions") {
-        const botResponse: MessageType = {
-          id: generateId(),
-          content: "Here are some common health questions. Select one to learn more:",
-          sender: 'bot',
-          timestamp: new Date(),
-          type: 'options',
-          options: ["How to prevent cold?", "What is high blood pressure?", "Benefits of exercise", "Healthy diet tips", "Sleep hygiene"]
-        };
-        addMessage(botResponse);
+          addMessage(botResponse);
+        }, 800);
         return;
       }
       
-      // Check if it's a chat history option
       if (profileData) {
         const historyItem = profileData.aiPersonalization.chatHistory.find(
           history => `${history.topic} (${new Date(history.date).toLocaleDateString()})` === option
@@ -428,35 +425,54 @@ const ChatInterface = () => {
       // Check if it's a symptom from the list
       const symptomAnalysis = getSymptomAnalysis(option);
       if (symptomAnalysis) {
-        const botResponse: MessageType = {
-          id: generateId(),
-          content: `About ${option}: ${symptomAnalysis}`,
-          sender: 'bot',
-          timestamp: new Date(),
-          type: 'text'
-        };
-        addMessage(botResponse);
+        setTimeout(() => {
+          setIsTyping(false);
+          const botResponse: MessageType = {
+            id: generateId(),
+            content: `About ${option}: ${symptomAnalysis}`,
+            sender: 'bot',
+            timestamp: new Date(),
+            type: 'text'
+          };
+          addMessage(botResponse);
+        }, 800);
         return;
       }
       
       // Check if it's an FAQ question
       const faqResponse = getFAQResponse(option);
       if (faqResponse) {
-        const botResponse: MessageType = {
-          id: generateId(),
-          content: faqResponse,
-          sender: 'bot',
-          timestamp: new Date(),
-          type: 'text'
-        };
-        addMessage(botResponse);
+        setTimeout(() => {
+          setIsTyping(false);
+          const botResponse: MessageType = {
+            id: generateId(),
+            content: faqResponse,
+            sender: 'bot',
+            timestamp: new Date(),
+            type: 'text'
+          };
+          addMessage(botResponse);
+        }, 800);
         return;
       }
       
-      // Default response if not recognized
-      const botResponse = processUserInput(option);
-      addMessage(botResponse);
-    });
+      // Use AI for other options
+      const botResponse = await processUserInput(option);
+      setTimeout(() => {
+        setIsTyping(false);
+        addMessage(botResponse);
+      }, 800);
+    } catch (error) {
+      console.error('Error processing option:', error);
+      setIsTyping(false);
+      addMessage({
+        id: generateId(),
+        content: "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
+        sender: 'bot',
+        timestamp: new Date(),
+        type: 'text'
+      });
+    }
   };
 
   const handleSymptomCheckerComplete = (analysis: string) => {
