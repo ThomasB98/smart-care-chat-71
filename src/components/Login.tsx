@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,23 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const { toast } = useToast();
+
+  // Check for existing session on component mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        console.log('Existing session found:', session.user.email);
+        onLogin({
+          email: session.user.email || '',
+          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+          id: session.user.id
+        });
+      }
+    };
+    
+    checkSession();
+  }, [onLogin]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +66,8 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
           setError("Email or password is incorrect. Please check your credentials and try again.");
         } else if (error.message.includes("Email not confirmed")) {
           setError("Please confirm your email before logging in. Check your inbox for a confirmation email.");
+        } else if (error.message.includes("User not found")) {
+          setError("No account found with this email. Please register first or check your email address.");
         } else {
           setError(`Login failed: ${error.message}`);
         }
@@ -73,22 +92,21 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      setError(error.message || "Invalid email or password. Please try again or register.");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // If login is still failing, try this function
   const handleTroubleshoot = async () => {
     try {
-      // Attempt to get the current session - useful for debugging
+      // Check current session status
       const { data: sessionData } = await supabase.auth.getSession();
       console.log("Current session data:", sessionData);
       
       if (sessionData?.session) {
         toast({
-          title: "You already have an active session",
+          title: "Session found",
           description: "Attempting to restore your login...",
         });
         
@@ -99,14 +117,25 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
           id: user.id
         });
       } else {
+        // Check if user exists but needs to confirm email
+        if (email) {
+          const { data: users } = await supabase.auth.admin.listUsers();
+          console.log("Users check:", users);
+        }
+        
         toast({
           title: "Troubleshooting",
-          description: "No active session found. Please try logging in again or reset your password.",
+          description: "No active session found. Try registering if you haven't already, or check if you need to confirm your email.",
           variant: "destructive"
         });
       }
     } catch (err) {
       console.error("Troubleshooting error:", err);
+      toast({
+        title: "Troubleshooting failed",
+        description: "Unable to diagnose the issue. Please try registering first if you haven't already.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -149,7 +178,7 @@ const Login = ({ onLogin, onRegister }: LoginProps) => {
               </div>
               
               {error && (
-                <div className="text-sm text-red-500">
+                <div className="text-sm text-red-500 bg-red-50 p-3 rounded">
                   {error}
                 </div>
               )}

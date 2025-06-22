@@ -49,7 +49,7 @@ Remember: You are providing general health information only, not medical diagnos
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: systemPromr },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
         max_tokens: 500,

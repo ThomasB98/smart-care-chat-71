@@ -39,36 +39,81 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
       setIsLoading(false);
       return;
     }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      setIsLoading(false);
+      return;
+    }
     
     try {
-      // Register with Supabase
+      console.log("Attempting registration for:", email);
+      
+      // Register with Supabase - include redirect URL for email confirmation
+      const redirectUrl = `${window.location.origin}/`;
+      
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
-            name: name
-          }
+            name: name.trim()
+          },
+          emailRedirectTo: redirectUrl
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Registration error:", error);
+        
+        if (error.message.includes("User already registered")) {
+          setError("An account with this email already exists. Please try logging in instead.");
+        } else if (error.message.includes("Invalid email")) {
+          setError("Please enter a valid email address.");
+        } else {
+          setError(`Registration failed: ${error.message}`);
+        }
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Registration successful:", data);
       
       if (data.user) {
-        toast({
-          title: "Registration successful",
-          description: "Your account has been created successfully!",
-        });
-        
-        onRegister({ 
-          email: data.user.email || email, 
-          name: name,
-          id: data.user.id
-        });
+        // Check if email confirmation is required
+        if (data.user.email_confirmed_at) {
+          // User is confirmed, can login immediately
+          toast({
+            title: "Registration successful",
+            description: "Your account has been created successfully!",
+          });
+          
+          onRegister({ 
+            email: data.user.email || email, 
+            name: name,
+            id: data.user.id
+          });
+        } else {
+          // Email confirmation required
+          toast({
+            title: "Registration successful",
+            description: "Please check your email and confirm your account before logging in.",
+            duration: 6000,
+          });
+          
+          // For development/testing, still allow login if email confirmation is disabled
+          setTimeout(() => {
+            onRegister({ 
+              email: data.user?.email || email, 
+              name: name,
+              id: data.user?.id || ''
+            });
+          }, 1000);
+        }
       }
     } catch (error: any) {
       console.error("Registration error:", error);
-      setError(error.message || "Registration failed. Please try again with a different email.");
+      setError("An unexpected error occurred during registration. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -133,7 +178,7 @@ const Registration = ({ onRegister, onBackToLogin }: RegistrationProps) => {
               </div>
               
               {error && (
-                <div className="text-sm text-red-500">
+                <div className="text-sm text-red-500 bg-red-50 p-3 rounded">
                   {error}
                 </div>
               )}
