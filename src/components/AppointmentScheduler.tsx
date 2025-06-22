@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -135,7 +134,9 @@ const AppointmentScheduler = ({ onComplete, onCancel, selectedDoctor }: Appointm
                 onSelect={handleDateSelect}
                 className="rounded-md border mx-auto"
                 disabled={(date) => {
-                  return date < new Date();
+                  const dateStr = format(date, "yyyy-MM-dd");
+                  // Only disable if no appointments or if the date is before today (not including today)
+                  return !appointmentsByDate[dateStr] || date.setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
                 }}
               />
             </div>
@@ -168,7 +169,8 @@ const AppointmentScheduler = ({ onComplete, onCancel, selectedDoctor }: Appointm
                 className="rounded-md border"
                 disabled={(date) => {
                   const dateStr = format(date, "yyyy-MM-dd");
-                  return !appointmentsByDate[dateStr] || date < new Date();
+                  // Only disable if no appointments or if the date is before today (not including today)
+                  return !appointmentsByDate[dateStr] || date.setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
                 }}
               />
             </div>

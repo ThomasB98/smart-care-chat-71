@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -36,18 +35,19 @@ IMPORTANT GUIDELINES:
 - Provide evidence-based information when possible
 - If unsure about medical information, recommend consulting a healthcare provider
 - Keep responses concise but informative
-- Use simple, non-technical language when possible
+- Do not use simple, non-technical language when possible
 
 Remember: You are providing general health information only, not medical diagnosis or treatment advice.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.aimlapi.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }

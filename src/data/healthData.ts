@@ -1,4 +1,3 @@
-
 // Mock data for healthcare information
 
 // Symptoms data for the symptom checker
@@ -29,17 +28,40 @@ export const symptomAnalysis: Record<string, string> = {
   rash: "Skin rashes can be caused by allergies, infections, or other skin conditions."
 };
 
-// Mock available appointment slots
-export const availableAppointments = [
-  { id: 1, date: "2025-05-02", time: "09:00 AM", doctor: "Dr. Sarah Johnson", specialty: "General Medicine" },
-  { id: 2, date: "2025-05-02", time: "11:30 AM", doctor: "Dr. Sarah Johnson", specialty: "General Medicine" },
-  { id: 3, date: "2025-05-03", time: "10:00 AM", doctor: "Dr. Michael Chen", specialty: "Internal Medicine" },
-  { id: 4, date: "2025-05-03", time: "02:15 PM", doctor: "Dr. Michael Chen", specialty: "Internal Medicine" },
-  { id: 5, date: "2025-05-04", time: "09:30 AM", doctor: "Dr. Emily Rodriguez", specialty: "Pediatrics" },
-  { id: 6, date: "2025-05-04", time: "01:00 PM", doctor: "Dr. Emily Rodriguez", specialty: "Pediatrics" },
-  { id: 7, date: "2025-05-05", time: "11:00 AM", doctor: "Dr. David Kim", specialty: "Cardiology" },
-  { id: 8, date: "2025-05-05", time: "03:30 PM", doctor: "Dr. David Kim", specialty: "Cardiology" }
+// Generate available appointments from tomorrow to two months ahead
+const today = new Date();
+const tomorrow = new Date(today);
+tomorrow.setDate(today.getDate() + 1);
+
+function formatDate(date) {
+  return date.toISOString().split('T')[0];
+}
+
+// Add 5 appointments per week for the next 8 weeks
+const doctors = [
+  { name: "Dr. Sarah Johnson", specialty: "General Medicine", time: "09:00 AM" },
+  { name: "Dr. Michael Chen", specialty: "Internal Medicine", time: "11:30 AM" },
+  { name: "Dr. Emily Rodriguez", specialty: "Pediatrics", time: "01:00 PM" },
+  { name: "Dr. David Kim", specialty: "Cardiology", time: "03:30 PM" },
+  { name: "Dr. Priya Patel", specialty: "Dermatology", time: "04:45 PM" },
 ];
+
+export const availableAppointments = [];
+
+for (let week = 0; week < 8; week++) {
+  for (let i = 0; i < 5; i++) {
+    const apptDate = new Date(tomorrow);
+    apptDate.setDate(tomorrow.getDate() + week * 7 + i); // spread appointments across the week
+    const doc = doctors[i % doctors.length];
+    availableAppointments.push({
+      id: week * 5 + i + 1,
+      date: formatDate(apptDate),
+      time: doc.time,
+      doctor: doc.name,
+      specialty: doc.specialty
+    });
+  }
+}
 
 // Health tips and FAQs
 export const healthTips = [
