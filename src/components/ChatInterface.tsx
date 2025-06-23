@@ -61,14 +61,34 @@ const ChatInterface = () => {
         reminderTime.setDate(reminderTime.getDate() + 1);
       }
 
+      // Check if already notified today
+      const today = new Date().toISOString().slice(0, 10);
+      if (reminder.lastNotified === today) {
+        return; // Already notified today
+      }
+
       const delay = reminderTime.getTime() - now.getTime();
 
       if (delay > 0) {
-        setTimeout(() => {
+        setTimeout(async () => {
           new Notification('Medication Reminder', {
             body: `It's time to take your ${reminder.medicationName}.`,
             icon: '/favicon.ico' 
           });
+          // Update lastNotified and save to DB
+          const updatedReminder = { ...reminder, lastNotified: new Date().toISOString().slice(0, 10) };
+          if (profileData && userData) {
+            const updatedReminders = profileData.medicalInfo.reminders.map(r => r.id === reminder.id ? updatedReminder : r);
+            const updatedProfileData = {
+              ...profileData,
+              medicalInfo: {
+                ...profileData.medicalInfo,
+                reminders: updatedReminders
+              }
+            };
+            setProfileData(updatedProfileData);
+            await saveProfileData(updatedProfileData, userData.id);
+          }
         }, delay);
       }
     }

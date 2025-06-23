@@ -136,6 +136,7 @@ export interface Reminder {
   frequency: string;
   time: string;
   active: boolean;
+  lastNotified?: string; // ISO date string
 }
 
 // Helper function to convert Date objects to strings for storage
