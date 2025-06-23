@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { MessageCircle, User, Settings } from "lucide-react";
+import { MessageCircle, User, Settings, History, X } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import SymptomChecker from "./SymptomChecker";
 import AppointmentScheduler from "./AppointmentScheduler";
 import MedicationReminder from "./MedicationReminder";
 import HealthTips from "./HealthTips";
-import NearbyDoctors from "./NearbyDoctors";
+import NearbyHospitals from "./NearbyHospitals";
 import Login from "./Login";
 import Registration from "./Registration";
 import { useNavigate } from "react-router-dom";
@@ -23,7 +23,8 @@ import {
 import { generateId, processUserInput, MessageType, generateSuggestedReply } from "@/utils/chatbotUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ProfileData, loadProfileData, saveProfileData } from "@/types/profile";
+import { ProfileData, loadProfileData, saveProfileData, ChatHistoryItem } from "@/types/profile";
+import { Hospital } from "./NearbyHospitals";
 
 const ChatInterface = () => {
   const navigate = useNavigate();
@@ -38,7 +39,8 @@ const ChatInterface = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [isGeneratingReply, setIsGeneratingReply] = useState(false);
   const [activeComponent, setActiveComponent] = useState<string | null>(null);
-  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +81,7 @@ const ChatInterface = () => {
               sender: 'bot',
               timestamp: new Date(),
               type: 'options',
-              options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors", "View chat history"]
+              options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals", "View chat history"]
             };
             setMessages([welcomeMessage]);
           } else {
@@ -90,7 +92,7 @@ const ChatInterface = () => {
               sender: 'bot',
               timestamp: new Date(),
               type: 'options',
-              options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+              options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals"]
             };
             setMessages([welcomeMessage]);
           }
@@ -103,7 +105,7 @@ const ChatInterface = () => {
             sender: 'bot',
             timestamp: new Date(),
             type: 'options',
-            options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+            options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals"]
           };
           setMessages([welcomeMessage]);
         }
@@ -116,7 +118,7 @@ const ChatInterface = () => {
             sender: 'bot',
             timestamp: new Date(),
             type: 'options',
-            options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+            options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals"]
           }
         ]);
       }
@@ -217,8 +219,8 @@ const ChatInterface = () => {
           timestamp: new Date(),
           type: 'options',
           options: profile.aiPersonalization.chatHistory.length > 0 
-            ? ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors", "View chat history"] 
-            : ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+            ? ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals", "View chat history"] 
+            : ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals"]
         };
         setMessages([welcomeMessage]);
       });
@@ -238,7 +240,7 @@ const ChatInterface = () => {
           sender: 'bot',
           timestamp: new Date(),
           type: 'options',
-          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals"]
         };
         setMessages([welcomeMessage]);
       });
@@ -263,7 +265,7 @@ const ChatInterface = () => {
           sender: 'bot',
           timestamp: new Date(),
           type: 'options',
-          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals"]
         };
         setMessages([welcomeMessage]);
       });
@@ -277,7 +279,7 @@ const ChatInterface = () => {
           sender: 'bot',
           timestamp: new Date(),
           type: 'options',
-          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+          options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals"]
         };
         setMessages([welcomeMessage]);
       });
@@ -304,7 +306,7 @@ const ChatInterface = () => {
         sender: 'bot',
         timestamp: new Date(),
         type: 'options',
-        options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby doctors"]
+        options: ["Check symptoms", "Schedule appointment", "Set medication reminder", "Get health tips", "Ask health questions", "Find nearby hospitals"]
       }
     ]);
   };
@@ -386,9 +388,13 @@ const ChatInterface = () => {
         setIsTyping(false);
         setActiveComponent('health-tips');
         return;
-      } else if (option === "Find nearby doctors") {
+      } else if (option === "Find nearby hospitals") {
         setIsTyping(false);
-        setActiveComponent('nearby-doctors');
+        setActiveComponent('nearby-hospitals');
+        return;
+      } else if (option === "View chat history") {
+        setShowHistoryPanel(true);
+        setIsTyping(false);
         return;
       } else if (option === "Ask health questions") {
         setTimeout(() => {
@@ -449,54 +455,64 @@ const ChatInterface = () => {
   };
 
   const handleAppointmentComplete = (details: string) => {
-    setActiveComponent(null);
-    
     simulateTyping(() => {
-      const botResponse: MessageType = {
+      addMessage({
         id: generateId(),
         content: details,
         sender: 'bot',
         timestamp: new Date(),
         type: 'text'
-      };
-      addMessage(botResponse);
+      });
     });
+    setActiveComponent(null);
+    setSelectedHospital(null); // Clear selected hospital after booking
   };
 
   const handleReminderComplete = (details: string) => {
-    setActiveComponent(null);
-    
     simulateTyping(() => {
-      const botResponse: MessageType = {
+      addMessage({
         id: generateId(),
-        content: details,
+        content: `Reminder set: ${details}. I will notify you when it's time.`,
         sender: 'bot',
         timestamp: new Date(),
         type: 'text'
-      };
-      addMessage(botResponse);
+      });
     });
+    setActiveComponent(null);
   };
 
   const handleHealthTipSelect = (prompt: string) => {
-    setActiveComponent(null);
     handleSendMessage(prompt);
   };
 
-  const handleDoctorSelect = (doctor: any) => {
-    setSelectedDoctor(doctor);
-    setActiveComponent('appointment');
-    
+  const handleHospitalSelect = (hospital: Hospital) => {
+    setSelectedHospital(hospital);
+    setActiveComponent(null); // Hide the hospitals list
     simulateTyping(() => {
-      const botResponse: MessageType = {
+      addMessage({
         id: generateId(),
-        content: `You selected ${doctor.name}, ${doctor.specialty}. Please schedule your appointment below.`,
+        content: `You've selected ${hospital.name}. I can help you schedule an appointment or get directions. What would you like to do?`,
         sender: 'bot',
         timestamp: new Date(),
-        type: 'text'
-      };
-      addMessage(botResponse);
+        type: 'options',
+        options: [`Schedule an appointment at ${hospital.name}`, `Get directions to ${hospital.name}`]
+      });
     });
+  };
+
+  const handleHistorySelect = (historyItem: ChatHistoryItem) => {
+    setMessages(historyItem.messages);
+    setShowHistoryPanel(false);
+    // Add a message to indicate that history was loaded
+    setTimeout(() => {
+      addMessage({
+        id: generateId(),
+        content: `Continuing conversation from ${new Date(historyItem.date).toLocaleDateString()}.`,
+        sender: 'bot',
+        timestamp: new Date(),
+        type: 'text',
+      });
+    }, 200);
   };
 
   const handleGenerateReply = async (botMessage: string) => {
@@ -559,6 +575,10 @@ const ChatInterface = () => {
                       <User className="mr-2 h-4 w-4" />
                       <span>My Profile</span>
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowHistoryPanel(true)}>
+                      <History className="mr-2 h-4 w-4" />
+                      <span>Chat History</span>
+                    </DropdownMenuItem>
                     <DropdownMenuItem>
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Settings</span>
@@ -574,18 +594,49 @@ const ChatInterface = () => {
           </div>
         </CardHeader>
         
-        <div className="flex flex-col flex-1 overflow-y-auto">
-          <CardContent className="flex-1 p-4 space-y-4">
-            {messages.map(message => (
-              <MessageBubble 
-                key={message.id} 
-                message={message} 
-                onOptionClick={handleOptionClick}
-                onGenerateReply={handleGenerateReply}
-              />
-            ))}
-            <div ref={messagesEndRef} />
-          </CardContent>
+        <div className="flex flex-col flex-1 overflow-y-hidden">
+          <div className="flex flex-1 overflow-y-hidden">
+            <CardContent className="flex-1 p-4 space-y-4 overflow-y-auto">
+              {messages.map(message => (
+                <MessageBubble 
+                  key={message.id} 
+                  message={message} 
+                  onOptionClick={handleOptionClick}
+                  onGenerateReply={handleGenerateReply}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </CardContent>
+
+            {showHistoryPanel && profileData && (
+              <div className="w-full md:w-1/3 border-l bg-gray-50/50 flex flex-col">
+                <div className="p-4 border-b flex justify-between items-center">
+                  <h3 className="font-semibold text-lg">Chat History</h3>
+                  <Button variant="ghost" size="icon" onClick={() => setShowHistoryPanel(false)}>
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  {profileData.aiPersonalization.chatHistory.length > 0 ? (
+                    <ul className="divide-y">
+                      {profileData.aiPersonalization.chatHistory.map(item => (
+                        <li 
+                          key={item.id} 
+                          className="p-3 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => handleHistorySelect(item)}
+                        >
+                          <p className="font-medium truncate">{item.topic}</p>
+                          <p className="text-sm text-gray-500">{new Date(item.date).toLocaleString()}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="p-4 text-center text-gray-500">No chat history found.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           
           <div className="px-4 pb-4">
             {activeComponent === 'symptom-checker' && (
@@ -596,9 +647,10 @@ const ChatInterface = () => {
             )}
             
             {activeComponent === 'appointment' && (
-              <AppointmentScheduler
+              <AppointmentScheduler 
                 onComplete={handleAppointmentComplete}
                 onCancel={() => setActiveComponent(null)}
+                selectedHospital={selectedHospital}
               />
             )}
             
@@ -616,9 +668,9 @@ const ChatInterface = () => {
               />
             )}
 
-            {activeComponent === 'nearby-doctors' && (
-              <NearbyDoctors
-                onSelectDoctor={handleDoctorSelect}
+            {activeComponent === 'nearby-hospitals' && (
+              <NearbyHospitals 
+                onSelectHospital={handleHospitalSelect}
                 onCancel={() => setActiveComponent(null)}
               />
             )}

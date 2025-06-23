@@ -59,26 +59,69 @@ const NearbyHospitals = ({ onSelectHospital, onCancel }: NearbyHospitalsProps) =
   const fetchNearbyHospitals = async (location: { lat: number; lng: number }) => {
     setLoading(true);
     try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/hospital.json?proximity=${location.lng},${location.lat}&access_token=${MAPBOX_TOKEN}&types=poi&limit=10`;
+      // Use the Search Box API for category search for better results
+      const category = "hospital"; // You can expand this to more categories if needed
+      const url = `https://api.mapbox.com/search/searchbox/v1/category/${category}?proximity=${location.lng},${location.lat}&access_token=${MAPBOX_TOKEN}&limit=15`;
       const response = await fetch(url);
       const data = await response.json();
 
       if (data.features && data.features.length > 0) {
         const hospitalResults: Hospital[] = data.features.map((feature: any) => ({
-          id: feature.id,
-          name: feature.text,
-          address: feature.properties.address || feature.place_name,
-          location: feature.center,
-          distance: calculateDistance(location.lat, location.lng, feature.center[1], feature.center[0]).toFixed(2),
+          id: feature.properties.mapbox_id,
+          name: feature.properties.name,
+          address: feature.properties.full_address || feature.properties.place_formatted,
+          location: feature.geometry.coordinates,
+          distance: calculateDistance(location.lat, location.lng, feature.geometry.coordinates[1], feature.geometry.coordinates[0]).toFixed(2),
         }));
         setHospitals(hospitalResults);
       } else {
-        toast({ title: "No Hospitals Found", description: "Could not find any hospitals nearby." });
+        // Fallback to a broader text search if category search fails
+        toast({ title: "No Hospitals Found", description: "Broadening search to other healthcare facilities..." });
+        fetchWithBroaderSearch(location);
       }
     } catch (err) {
       console.error("Error fetching hospitals:", err);
       setError("Failed to fetch nearby hospitals.");
       toast({ title: "API Error", description: "Could not fetch data from the map service.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fallback function to use broad text search if category search yields no results
+  const fetchWithBroaderSearch = async (location: { lat: number; lng: number }) => {
+    setLoading(true);
+    try {
+      const searchTerms = ["hospital", "clinic", "medical center"];
+      let allResults: Hospital[] = [];
+
+      for (const term of searchTerms) {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(term)}.json?proximity=${location.lng},${location.lat}&access_token=${MAPBOX_TOKEN}&types=poi&limit=10`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.features && data.features.length > 0) {
+          const termResults: Hospital[] = data.features.map((feature: any) => ({
+            id: feature.id,
+            name: feature.text,
+            address: feature.properties.address || feature.place_name,
+            location: feature.center,
+            distance: calculateDistance(location.lat, location.lng, feature.center[1], feature.center[0]).toFixed(2),
+          }));
+          allResults.push(...termResults);
+        }
+      }
+
+      if (allResults.length > 0) {
+        const uniqueResults = Array.from(new Map(allResults.map(item => [item.id, item])).values());
+        uniqueResults.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+        setHospitals(uniqueResults);
+      } else {
+        toast({ title: "No Healthcare Facilities Found", description: "Could not find any hospitals or clinics nearby." });
+      }
+    } catch (err) {
+      console.error("Error fetching with broader search:", err);
+      setError("Failed to fetch nearby healthcare facilities.");
     } finally {
       setLoading(false);
     }
@@ -133,9 +176,9 @@ const NearbyHospitals = ({ onSelectHospital, onCancel }: NearbyHospitalsProps) =
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Nearby Hospitals</CardTitle>
+        <CardTitle>Nearby Healthcare Facilities</CardTitle>
         <CardDescription>
-          Showing hospitals near your location. Select one to proceed with scheduling.
+          Showing hospitals and clinics near your location. Select one to proceed.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[500px]">

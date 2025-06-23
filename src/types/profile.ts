@@ -100,7 +100,7 @@ export interface ChatHistoryItem {
   topic: string;
   date: Date;
   summary: string;
-  messages?: MessageType[]; // Add this field to store actual messages
+  messages: any[];
 }
 
 export interface MoodTracking {
@@ -124,6 +124,11 @@ export interface ProfileData {
   remindersPreferences: RemindersPreferences;
   accountSecurity: AccountSecurity;
   aiPersonalization: AIPersonalizationData;
+}
+
+export interface Reminder {
+  // ... existing code ...
+  reminders: Reminder[];
 }
 
 // Helper function to convert Date objects to strings for storage
