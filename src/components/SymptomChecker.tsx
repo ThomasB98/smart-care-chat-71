@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { symptoms } from "@/data/healthData";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface SymptomCheckerProps {
@@ -11,27 +10,14 @@ interface SymptomCheckerProps {
 }
 
 const SymptomChecker = ({ onComplete, onCancel }: SymptomCheckerProps) => {
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
-
-  const toggleSymptom = (symptomId: string) => {
-    if (selectedSymptoms.includes(symptomId)) {
-      setSelectedSymptoms(selectedSymptoms.filter(id => id !== symptomId));
-    } else {
-      setSelectedSymptoms([...selectedSymptoms, symptomId]);
-    }
-  };
+  const [symptoms, setSymptoms] = useState("");
 
   const handleSubmit = () => {
-    if (selectedSymptoms.length === 0) {
-      onComplete("Please select at least one symptom.");
+    if (symptoms.trim().length === 0) {
+      onComplete("Please describe your symptoms.");
       return;
     }
-
-    const symptomLabels = selectedSymptoms.map(id => {
-      return symptoms.find(s => s.id === id)?.label || '';
-    }).filter(Boolean);
-
-    const analysis = `I am experiencing the following symptoms: ${symptomLabels.join(", ")}.`;
+    const analysis = `I am experiencing the following symptoms: ${symptoms}. What could be the possible causes?`;
     onComplete(analysis);
   };
 
@@ -40,30 +26,25 @@ const SymptomChecker = ({ onComplete, onCancel }: SymptomCheckerProps) => {
       <CardHeader>
         <CardTitle>Symptom Checker</CardTitle>
         <CardDescription>
-          Select the symptoms you're experiencing, and I'll provide some general guidance.
+          Please describe your symptoms in the text area below. For example, "I have a headache and a runny nose."
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {symptoms.map((symptom) => (
-            <div key={symptom.id} className="flex items-center space-x-2">
-              <Checkbox 
-                id={symptom.id} 
-                checked={selectedSymptoms.includes(symptom.id)}
-                onCheckedChange={() => toggleSymptom(symptom.id)}
-              />
-              <Label htmlFor={symptom.id} className="cursor-pointer">{symptom.label}</Label>
-            </div>
-          ))}
+        <div className="grid w-full gap-1.5">
+          <Label htmlFor="symptoms">Your Symptoms</Label>
+          <Textarea 
+            placeholder="Describe your symptoms here..." 
+            id="symptoms" 
+            value={symptoms}
+            onChange={(e) => setSymptoms(e.target.value)}
+            rows={4}
+          />
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button 
-          onClick={handleSubmit} 
-          className="bg-healthcare-primary hover:bg-healthcare-dark"
-        >
-          Check Symptoms
+        <Button onClick={handleSubmit}>
+          Analyze Symptoms
         </Button>
       </CardFooter>
     </Card>
