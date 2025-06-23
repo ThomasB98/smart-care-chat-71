@@ -372,31 +372,32 @@ const ChatInterface = () => {
     // Handle different option types
     setIsTyping(true);
     try {
-      if (option === "Check symptoms") {
+      const lowerCaseOption = option.toLowerCase();
+      if (lowerCaseOption === "check symptoms") {
         setIsTyping(false);
         setActiveComponent('symptom-checker');
         return;
-      } else if (option === "Schedule appointment") {
+      } else if (lowerCaseOption === "schedule appointment" || lowerCaseOption.startsWith("schedule an appointment at")) {
         setIsTyping(false);
         setActiveComponent('appointment');
         return;
-      } else if (option === "Set medication reminder") {
+      } else if (lowerCaseOption === "set medication reminder") {
         setIsTyping(false);
         setActiveComponent('reminder');
         return;
-      } else if (option === "Get health tips") {
+      } else if (lowerCaseOption === "get health tips") {
         setIsTyping(false);
         setActiveComponent('health-tips');
         return;
-      } else if (option === "Find nearby hospitals") {
+      } else if (lowerCaseOption === "find nearby hospitals") {
         setIsTyping(false);
         setActiveComponent('nearby-hospitals');
         return;
-      } else if (option === "View chat history") {
+      } else if (lowerCaseOption === "view chat history") {
         setShowHistoryPanel(true);
         setIsTyping(false);
         return;
-      } else if (option === "Ask health questions") {
+      } else if (lowerCaseOption === "ask health questions") {
         setTimeout(() => {
           setIsTyping(false);
           const botResponse: MessageType = {
