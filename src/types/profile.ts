@@ -20,6 +20,9 @@ export interface MedicalInfo {
   pastSurgeries: string;
   vaccinationRecords: string;
   familyMedicalHistory: string;
+  allergies: string[];
+  medications: string[];
+  reminders: Reminder[];
 }
 
 export interface HealthMetrics {
@@ -127,8 +130,12 @@ export interface ProfileData {
 }
 
 export interface Reminder {
-  // ... existing code ...
-  reminders: Reminder[];
+  id: string;
+  medicationName: string;
+  dosage: string;
+  frequency: string;
+  time: string;
+  active: boolean;
 }
 
 // Helper function to convert Date objects to strings for storage
@@ -264,9 +271,9 @@ export const saveProfileData = async (data: ProfileData, userId: string): Promis
         .upsert({
           user_id: userId,
           blood_group: processedData.medicalInfo.bloodGroup,
-          known_allergies: processedData.medicalInfo.knownAllergies,
+          known_allergies: processedData.medicalInfo.knownAllergies.join(', '),
           chronic_conditions: processedData.medicalInfo.chronicConditions,
-          current_medications: processedData.medicalInfo.currentMedications,
+          current_medications: processedData.medicalInfo.currentMedications.join(', '),
           past_surgeries: processedData.medicalInfo.pastSurgeries,
           vaccination_records: processedData.medicalInfo.vaccinationRecords,
           family_medical_history: processedData.medicalInfo.familyMedicalHistory,
@@ -433,12 +440,23 @@ const fetchProfileDataFromSupabase = async (userId: string): Promise<ProfileData
       },
       medicalInfo: {
         bloodGroup: medicalInfoData?.blood_group || '',
-        knownAllergies: medicalInfoData?.known_allergies || '',
+        knownAllergies: Array.isArray(medicalInfoData?.known_allergies) 
+          ? medicalInfoData.known_allergies 
+          : (medicalInfoData?.known_allergies?.split(',').map(s => s.trim()).filter(Boolean) || []),
         chronicConditions: medicalInfoData?.chronic_conditions || '',
-        currentMedications: medicalInfoData?.current_medications || '',
+        currentMedications: Array.isArray(medicalInfoData?.current_medications)
+          ? medicalInfoData.current_medications
+          : (medicalInfoData?.current_medications?.split(',').map(s => s.trim()).filter(Boolean) || []),
         pastSurgeries: medicalInfoData?.past_surgeries || '',
         vaccinationRecords: medicalInfoData?.vaccination_records || '',
         familyMedicalHistory: medicalInfoData?.family_medical_history || '',
+        allergies: Array.isArray(medicalInfoData?.known_allergies) 
+          ? medicalInfoData.known_allergies 
+          : (medicalInfoData?.known_allergies?.split(',').map(s => s.trim()).filter(Boolean) || []),
+        medications: Array.isArray(medicalInfoData?.current_medications)
+          ? medicalInfoData.current_medications
+          : (medicalInfoData?.current_medications?.split(',').map(s => s.trim()).filter(Boolean) || []),
+        reminders: (medicalInfoData as any)?.reminders || [],
       },
       healthMetrics: {
         height: healthMetricsData?.height || '',
@@ -590,7 +608,10 @@ export const getDefaultProfileData = (userData: { name: string; email: string })
       currentMedications: "",
       pastSurgeries: "",
       vaccinationRecords: "",
-      familyMedicalHistory: ""
+      familyMedicalHistory: "",
+      allergies: [],
+      medications: [],
+      reminders: [],
     },
     healthMetrics: {
       height: "",

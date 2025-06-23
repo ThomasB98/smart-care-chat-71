@@ -1,40 +1,39 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
+import { Reminder } from "@/types/profile";
+import { generateId } from "@/utils/chatbotUtils";
 
 interface MedicationReminderProps {
-  onComplete: (details: string) => void;
+  onComplete: (reminder: Reminder) => void;
   onCancel: () => void;
 }
 
 const MedicationReminder = ({ onComplete, onCancel }: MedicationReminderProps) => {
   const [medicationName, setMedicationName] = useState("");
   const [dosage, setDosage] = useState("");
-  const [frequency, setFrequency] = useState("");
+  const [frequency, setFrequency] = useState("Daily");
   const [time, setTime] = useState("");
   
   const handleSubmit = () => {
     if (!medicationName || !time) {
-      onComplete("Please enter at least the medication name and time to set a reminder.");
+      // This case should ideally be handled by disabling the button,
+      // but as a fallback, we do nothing.
       return;
     }
 
-    const reminderDetails = `
-      Medication reminder set:
-      
-      Medication: ${medicationName}
-      ${dosage ? `Dosage: ${dosage}` : ''}
-      ${frequency ? `Frequency: ${frequency}` : ''}
-      Time: ${time}
-      
-      I'll remind you to take your medication at the scheduled time.
-    `;
+    const newReminder: Reminder = {
+      id: generateId(),
+      medicationName,
+      dosage,
+      frequency,
+      time,
+      active: true
+    };
     
-    onComplete(reminderDetails);
+    onComplete(newReminder);
   };
 
   return (
@@ -69,12 +68,12 @@ const MedicationReminder = ({ onComplete, onCancel }: MedicationReminderProps) =
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="frequency">Frequency (optional)</Label>
+            <Label htmlFor="frequency">Frequency</Label>
             <Input
               id="frequency"
               value={frequency}
               onChange={(e) => setFrequency(e.target.value)}
-              placeholder="e.g., Daily, Twice daily, Every 8 hours"
+              placeholder="e.g., Daily, Twice daily"
             />
           </div>
           
@@ -97,7 +96,6 @@ const MedicationReminder = ({ onComplete, onCancel }: MedicationReminderProps) =
         <Button 
           onClick={handleSubmit}
           disabled={!medicationName || !time}
-          className="bg-healthcare-primary hover:bg-healthcare-dark"
         >
           Set Reminder
         </Button>

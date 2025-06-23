@@ -23,7 +23,7 @@ import {
 import { generateId, processUserInput, MessageType, generateSuggestedReply } from "@/utils/chatbotUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ProfileData, loadProfileData, saveProfileData, ChatHistoryItem } from "@/types/profile";
+import { ProfileData, loadProfileData, saveProfileData, ChatHistoryItem, Reminder } from "@/types/profile";
 import { Hospital } from "./NearbyHospitals";
 
 const ChatInterface = () => {
@@ -46,6 +46,32 @@ const ChatInterface = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Function to schedule a single notification
+  const scheduleNotification = (reminder: Reminder) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const [hours, minutes] = reminder.time.split(':').map(Number);
+      const now = new Date();
+      const reminderTime = new Date();
+      reminderTime.setHours(hours, minutes, 0, 0);
+
+      // If the time is in the past for today, schedule it for tomorrow
+      if (reminderTime < now) {
+        reminderTime.setDate(reminderTime.getDate() + 1);
+      }
+
+      const delay = reminderTime.getTime() - now.getTime();
+
+      if (delay > 0) {
+        setTimeout(() => {
+          new Notification('Medication Reminder', {
+            body: `It's time to take your ${reminder.medicationName}.`,
+            icon: '/favicon.ico' 
+          });
+        }, delay);
+      }
+    }
   };
 
   useEffect(() => {
@@ -126,6 +152,17 @@ const ChatInterface = () => {
     
     checkAuth();
   }, []);
+
+  // Schedule notifications for existing reminders on load
+  useEffect(() => {
+    if (profileData?.medicalInfo.reminders) {
+      profileData.medicalInfo.reminders.forEach(reminder => {
+        if (reminder.active) {
+          scheduleNotification(reminder);
+        }
+      });
+    }
+  }, [profileData]);
 
   // Save chat history when messages change
   useEffect(() => {
@@ -469,16 +506,65 @@ const ChatInterface = () => {
     setSelectedHospital(null); // Clear selected hospital after booking
   };
 
-  const handleReminderComplete = (details: string) => {
-    simulateTyping(() => {
-      addMessage({
-        id: generateId(),
-        content: `Reminder set: ${details}. I will notify you when it's time.`,
-        sender: 'bot',
-        timestamp: new Date(),
-        type: 'text'
+  const handleReminderComplete = async (reminder: Reminder) => {
+    if (!profileData || !userData) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to set a reminder.",
+        variant: "destructive"
       });
-    });
+      setActiveComponent(null);
+      return;
+    }
+
+    // Update profile data with new reminder
+    const updatedProfileData = {
+      ...profileData,
+      medicalInfo: {
+        ...profileData.medicalInfo,
+        reminders: [...profileData.medicalInfo.reminders, reminder]
+      }
+    };
+    
+    setProfileData(updatedProfileData);
+
+    try {
+      // Save to database
+      await saveProfileData(updatedProfileData, userData.id);
+
+      // Schedule notification
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          scheduleNotification(reminder);
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              scheduleNotification(reminder);
+            }
+          });
+        }
+      }
+
+      // Show confirmation message
+      simulateTyping(() => {
+        addMessage({
+          id: generateId(),
+          content: `Reminder set for ${reminder.medicationName} at ${reminder.time} ${reminder.frequency}. I'll notify you when it's time.`,
+          sender: 'bot',
+          timestamp: new Date(),
+          type: 'text'
+        });
+      });
+
+    } catch (error) {
+      console.error("Failed to save reminder:", error);
+      toast({
+        title: "Error",
+        description: "Could not save your reminder. Please try again.",
+        variant: "destructive"
+      });
+    }
+    
     setActiveComponent(null);
   };
 
