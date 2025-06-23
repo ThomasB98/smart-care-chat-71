@@ -1,15 +1,16 @@
-
 import { MessageType } from "@/utils/chatbotUtils";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
-import { MessageCircle, User } from "lucide-react";
+import { MessageCircle, User, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface MessageBubbleProps {
   message: MessageType;
   onOptionClick?: (option: string) => void;
+  onGenerateReply?: (message: string) => void;
 }
 
-const MessageBubble = ({ message, onOptionClick }: MessageBubbleProps) => {
+const MessageBubble = ({ message, onOptionClick, onGenerateReply }: MessageBubbleProps) => {
   const isBot = message.sender === 'bot';
   
   const formattedTime = new Date(message.timestamp).toLocaleTimeString([], {
@@ -43,6 +44,20 @@ const MessageBubble = ({ message, onOptionClick }: MessageBubbleProps) => {
         >
           <p className="text-sm">{message.content}</p>
           
+          {isBot && message.type === 'text' && onGenerateReply && (
+            <div className="absolute -bottom-3 -right-3">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 rounded-full bg-white hover:bg-gray-200 shadow-sm border"
+                onClick={() => onGenerateReply(message.content)}
+                title="Suggest a reply"
+              >
+                <Sparkles className="h-4 w-4 text-yellow-500" />
+              </Button>
+            </div>
+          )}
+
           {message.options && message.options.length > 0 && (
             <div className="mt-3 flex flex-col space-y-2">
               {message.options.map(option => (

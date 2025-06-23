@@ -1,4 +1,3 @@
-
 import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +7,11 @@ import { cn } from "@/lib/utils";
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isTyping?: boolean;
+  inputValue: string;
+  setInputValue: (value: string) => void;
 }
 
-const ChatInput = ({ onSendMessage, isTyping = false }: ChatInputProps) => {
-  const [inputValue, setInputValue] = useState("");
-
+const ChatInput = ({ onSendMessage, isTyping = false, inputValue, setInputValue }: ChatInputProps) => {
   console.log("ChatInput rendered, isTyping:", isTyping);
 
   const handleSubmit = (e: FormEvent) => {

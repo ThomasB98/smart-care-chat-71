@@ -1,4 +1,3 @@
-
 import { symptoms, symptomAnalysis, healthTips, healthFAQs } from "../data/healthData";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -85,16 +84,6 @@ export const processUserInput = async (userInput: string): Promise<MessageType> 
       type: 'reminder'
     };
   }
-  else if (userInputLower.includes('tip') || userInputLower.includes('advice') || userInputLower.includes('health tips')) {
-    const randomTip = healthTips[Math.floor(Math.random() * healthTips.length)];
-    return {
-      id: generateId(),
-      content: `Here's a health tip for you: ${randomTip}`,
-      sender: 'bot',
-      timestamp: new Date(),
-      type: 'health-tip'
-    };
-  }
   else if (userInputLower.includes('hospital') || userInputLower.includes('nearby') || userInputLower.includes('find') || userInputLower.includes('location') || userInputLower.includes('doctors near me')) {
     return {
       id: generateId(),
@@ -130,16 +119,25 @@ export const processUserInput = async (userInput: string): Promise<MessageType> 
   }
 };
 
-// Get analysis for a specific symptom
-export const getSymptomAnalysis = (symptomName: string): string => {
-  const symptomKey = symptoms.find(s => s.label.toLowerCase() === symptomName.toLowerCase())?.id;
-  return symptomKey && symptomAnalysis[symptomKey] 
-    ? symptomAnalysis[symptomKey] 
-    : "I don't have specific information about that symptom. It's best to consult with a healthcare professional for personalized advice.";
-};
+export const generateSuggestedReply = async (botMessage: string): Promise<string> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('ai-generate-reply', {
+      body: { message: botMessage }
+    });
 
-// Get response for FAQ questions
-export const getFAQResponse = (question: string): string => {
-  const faq = healthFAQs.find(f => f.question === question);
-  return faq ? faq.answer : "I don't have information about that specific question.";
+    if (error) {
+      console.error('Supabase function error (generate reply):', error);
+      throw error;
+    }
+
+    if (!data.success || !data.reply) {
+      console.error('AI function returned error (generate reply):', data.error);
+      throw new Error(data.error || 'Failed to get suggested reply');
+    }
+
+    return data.reply;
+  } catch (error) {
+    console.error('Error calling generate reply function:', error);
+    return "Sorry, I can't suggest a reply right now.";
+  }
 };

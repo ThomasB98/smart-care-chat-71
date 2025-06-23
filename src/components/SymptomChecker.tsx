@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { symptoms, symptomAnalysis } from "@/data/healthData";
+import { symptoms } from "@/data/healthData";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -24,22 +23,15 @@ const SymptomChecker = ({ onComplete, onCancel }: SymptomCheckerProps) => {
 
   const handleSubmit = () => {
     if (selectedSymptoms.length === 0) {
-      onComplete("Please select at least one symptom so I can provide some guidance.");
+      onComplete("Please select at least one symptom.");
       return;
     }
 
-    // Generate a simple analysis based on selected symptoms
-    let analysis = "Based on your symptoms, here's some general information:\n\n";
-    
-    selectedSymptoms.forEach(symptomId => {
-      const symptom = symptoms.find(s => s.id === symptomId);
-      if (symptom && symptomAnalysis[symptomId]) {
-        analysis += `- ${symptom.label}: ${symptomAnalysis[symptomId]}\n\n`;
-      }
-    });
-    
-    analysis += "\nThis is not a medical diagnosis. Please consult a healthcare professional for proper evaluation and treatment.";
-    
+    const symptomLabels = selectedSymptoms.map(id => {
+      return symptoms.find(s => s.id === id)?.label || '';
+    }).filter(Boolean);
+
+    const analysis = `I am experiencing the following symptoms: ${symptomLabels.join(", ")}.`;
     onComplete(analysis);
   };
 

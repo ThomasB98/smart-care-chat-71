@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { generateId, processUserInput, MessageType, getSymptomAnalysis, getFAQResponse } from "@/utils/chatbotUtils";
+import { generateId, processUserInput, MessageType, generateSuggestedReply } from "@/utils/chatbotUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ProfileData, loadProfileData, saveProfileData } from "@/types/profile";
@@ -33,8 +33,10 @@ const ChatInterface = () => {
   const [userData, setUserData] = useState<{ email: string; name: string; id: string } | null>(null);
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [inputValue, setInputValue] = useState("");
   
   const [isTyping, setIsTyping] = useState(false);
+  const [isGeneratingReply, setIsGeneratingReply] = useState(false);
   const [activeComponent, setActiveComponent] = useState<string | null>(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   
@@ -422,40 +424,6 @@ const ChatInterface = () => {
         }
       }
       
-      // Check if it's a symptom from the list
-      const symptomAnalysis = getSymptomAnalysis(option);
-      if (symptomAnalysis) {
-        setTimeout(() => {
-          setIsTyping(false);
-          const botResponse: MessageType = {
-            id: generateId(),
-            content: `About ${option}: ${symptomAnalysis}`,
-            sender: 'bot',
-            timestamp: new Date(),
-            type: 'text'
-          };
-          addMessage(botResponse);
-        }, 800);
-        return;
-      }
-      
-      // Check if it's an FAQ question
-      const faqResponse = getFAQResponse(option);
-      if (faqResponse) {
-        setTimeout(() => {
-          setIsTyping(false);
-          const botResponse: MessageType = {
-            id: generateId(),
-            content: faqResponse,
-            sender: 'bot',
-            timestamp: new Date(),
-            type: 'text'
-          };
-          addMessage(botResponse);
-        }, 800);
-        return;
-      }
-      
       // Use AI for other options
       const botResponse = await processUserInput(option);
       setTimeout(() => {
@@ -475,19 +443,9 @@ const ChatInterface = () => {
     }
   };
 
-  const handleSymptomCheckerComplete = (analysis: string) => {
+  const handleSymptomCheckerComplete = (symptoms: string) => {
     setActiveComponent(null);
-    
-    simulateTyping(() => {
-      const botResponse: MessageType = {
-        id: generateId(),
-        content: analysis,
-        sender: 'bot',
-        timestamp: new Date(),
-        type: 'text'
-      };
-      addMessage(botResponse);
-    });
+    handleSendMessage(symptoms);
   };
 
   const handleAppointmentComplete = (details: string) => {
@@ -520,19 +478,9 @@ const ChatInterface = () => {
     });
   };
 
-  const handleHealthTipSelect = (content: string) => {
+  const handleHealthTipSelect = (prompt: string) => {
     setActiveComponent(null);
-    
-    simulateTyping(() => {
-      const botResponse: MessageType = {
-        id: generateId(),
-        content,
-        sender: 'bot',
-        timestamp: new Date(),
-        type: 'text'
-      };
-      addMessage(botResponse);
-    });
+    handleSendMessage(prompt);
   };
 
   const handleDoctorSelect = (doctor: any) => {
@@ -549,6 +497,23 @@ const ChatInterface = () => {
       };
       addMessage(botResponse);
     });
+  };
+
+  const handleGenerateReply = async (botMessage: string) => {
+    setIsGeneratingReply(true);
+    try {
+      const suggestedReply = await generateSuggestedReply(botMessage);
+      setInputValue(suggestedReply);
+    } catch (error) {
+      console.error("Failed to generate reply:", error);
+      toast({
+        title: "Could not generate reply",
+        description: "There was a problem generating a suggested reply.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingReply(false);
+    }
   };
 
   if (!isLoggedIn) {
@@ -616,6 +581,7 @@ const ChatInterface = () => {
                 key={message.id} 
                 message={message} 
                 onOptionClick={handleOptionClick}
+                onGenerateReply={handleGenerateReply}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -663,7 +629,9 @@ const ChatInterface = () => {
           <div className="p-4 border-t">
             <ChatInput 
               onSendMessage={handleSendMessage} 
-              isTyping={isTyping} 
+              isTyping={isTyping || isGeneratingReply} 
+              inputValue={inputValue}
+              setInputValue={setInputValue}
             />
           </div>
         )}
